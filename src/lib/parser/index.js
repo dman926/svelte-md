@@ -35,6 +35,8 @@
 import { createBlockParser } from './block.js';
 import { createInlineParser } from './inline.js';
 
+export * from './types.js';
+
 /**
  * Create a fully configured parser that combines the block and inline parsers.
  *
@@ -50,7 +52,7 @@ import { createInlineParser } from './inline.js';
  * @param {ParserOptions} [options]
  * @returns {Parser}
  */
-export function createParser(options = {}) {
+export const createParser = (options = {}) => {
 	const blockParser = createBlockParser(options.block);
 	const inlineParser = createInlineParser(options.inline);
 

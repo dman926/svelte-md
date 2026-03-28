@@ -70,16 +70,16 @@
  * @param {number} len
  * @returns {number} Index of the closing run start, or -1.
  */
-function findEmphasisClose(str, from, delimChar, len) {
+const findEmphasisClose = (str, from, delimChar, len) => {
 	let i = from;
 	while (i < str.length) {
-		if (str[i] === delimChar) {
+		if (str[i] == delimChar) {
 			let runLen = 0;
-			while (i + runLen < str.length && str[i + runLen] === delimChar) runLen++;
-			if (runLen === len) {
-				if (delimChar === '_') {
+			while (i + runLen < str.length && str[i + runLen] == delimChar) runLen++;
+			if (runLen == len) {
+				if (delimChar == '_') {
 					const after = str[i + runLen];
-					if (after !== undefined && /\w/.test(after)) {
+					if (after != undefined && /\w/.test(after)) {
 						i += runLen;
 						continue;
 					}
@@ -92,7 +92,7 @@ function findEmphasisClose(str, from, delimChar, len) {
 		}
 	}
 	return -1;
-}
+};
 
 /**
  * Find the next run of exactly `len` consecutive backticks at or after `from`.
@@ -101,20 +101,20 @@ function findEmphasisClose(str, from, delimChar, len) {
  * @param {number} len
  * @returns {number}
  */
-function findBacktickClose(str, from, len) {
+const findBacktickClose = (str, from, len) => {
 	let i = from;
 	while (i < str.length) {
-		if (str[i] === '`') {
+		if (str[i] == '`') {
 			let runLen = 0;
-			while (i + runLen < str.length && str[i + runLen] === '`') runLen++;
-			if (runLen === len) return i;
+			while (i + runLen < str.length && str[i + runLen] == '`') runLen++;
+			if (runLen == len) return i;
 			i += runLen;
 		} else {
 			i++;
 		}
 	}
 	return -1;
-}
+};
 
 /**
  * Find the closing `]` matching the `[` that opened at `from - 1`.
@@ -123,14 +123,14 @@ function findBacktickClose(str, from, len) {
  * @param {number} from - Index AFTER the opening `[`.
  * @returns {number}
  */
-function findClosingBracket(str, from) {
+const findClosingBracket = (str, from) => {
 	let depth = 1;
 	for (let i = from; i < str.length; i++) {
-		if (str[i] === '[') depth++;
-		else if (str[i] === ']' && --depth === 0) return i;
+		if (str[i] == '[') depth++;
+		else if (str[i] == ']' && --depth == 0) return i;
 	}
 	return -1;
-}
+};
 
 /**
  * Find the closing `)` matching the `(` that opened at `from - 1`.
@@ -139,14 +139,14 @@ function findClosingBracket(str, from) {
  * @param {number} from - Index AFTER the opening `(`.
  * @returns {number}
  */
-function findClosingParen(str, from) {
+const findClosingParen = (str, from) => {
 	let depth = 1;
 	for (let i = from; i < str.length; i++) {
-		if (str[i] === '(') depth++;
-		else if (str[i] === ')' && --depth === 0) return i;
+		if (str[i] == '(') depth++;
+		else if (str[i] == ')' && --depth == 0) return i;
 	}
 	return -1;
-}
+};
 
 // ---------------------------------------------------------------------------
 // Compiled inline config
@@ -175,20 +175,20 @@ function findClosingParen(str, from) {
  * @param {InlineParserOptions} [options]
  * @returns {CompiledInlineConfig}
  */
-function compileInlineConfig(options = {}) {
+const compileInlineConfig = (options = {}) => {
 	const strikeOpts = options.strike;
-	const strikeEnabled = strikeOpts !== false;
+	const strikeEnabled = strikeOpts != false;
 	const strikeDelimiter =
-		typeof strikeOpts === 'object' && strikeOpts !== null && strikeOpts.delimiter
+		typeof strikeOpts == 'object' && strikeOpts != null && strikeOpts.delimiter
 			? strikeOpts.delimiter
 			: '~~';
 
-	const boldEnabled = options.bold !== false;
-	const italicEnabled = options.italic !== false;
+	const boldEnabled = options.bold != false;
+	const italicEnabled = options.italic != false;
 
 	return {
-		escapeEnabled: options.escape !== false,
-		codeEnabled: options.code !== false,
+		escapeEnabled: options.escape != false,
+		codeEnabled: options.code != false,
 		strikeEnabled,
 		strikeDelimiter,
 		strikeTrigger: strikeDelimiter[0] ?? '~',
@@ -196,11 +196,11 @@ function compileInlineConfig(options = {}) {
 		italicEnabled,
 		// bold_italic requires both to be on; otherwise *** is ambiguous
 		boldItalicEnabled: boldEnabled && italicEnabled,
-		linkEnabled: options.link !== false,
-		imageEnabled: options.image !== false,
+		linkEnabled: options.link != false,
+		imageEnabled: options.image != false,
 		customRules: options.custom ?? [],
 	};
-}
+};
 
 // ---------------------------------------------------------------------------
 // Core tokenize function (takes a compiled config)
@@ -212,7 +212,7 @@ function compileInlineConfig(options = {}) {
  * @param {CompiledInlineConfig} cfg
  * @returns {InlineToken[]}
  */
-function tokenizeInlineWithConfig(raw, contentStart, cfg) {
+const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 	/** @type {InlineToken[]} */
 	const tokens = [];
 	let i = contentStart;
@@ -222,7 +222,7 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 	 * Flush pending text run up to (not including) `end`.
 	 * @param {number} end
 	 */
-	function flushText(end) {
+	const flushText = (end) => {
 		if (textStart >= 0 && textStart < end) {
 			tokens.push({
 				type: 'text',
@@ -233,15 +233,15 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 			});
 		}
 		textStart = -1;
-	}
+	};
 
 	/**
 	 * Open (or extend) a text run at `pos`.
 	 * @param {number} pos
 	 */
-	function appendText(pos) {
+	const appendText = (pos) => {
 		if (textStart < 0) textStart = pos;
-	}
+	};
 
 	// -------------------------------------------------------------------------
 	// Main scan loop
@@ -254,7 +254,7 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 		// -----------------------------------------------------------------------
 		for (const rule of cfg.customRules) {
 			const token = rule.scan(raw, i);
-			if (token !== null && token !== undefined) {
+			if (token != null && token != undefined) {
 				flushText(i);
 				tokens.push(token);
 				i = token.end;
@@ -265,7 +265,7 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 		// -----------------------------------------------------------------------
 		// Escape: \X
 		// -----------------------------------------------------------------------
-		if (cfg.escapeEnabled && ch === '\\' && i + 1 < raw.length) {
+		if (cfg.escapeEnabled && ch == '\\' && i + 1 < raw.length) {
 			flushText(i);
 			tokens.push({
 				type: 'escape',
@@ -281,21 +281,21 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 		// -----------------------------------------------------------------------
 		// Inline code: `...` or ``...`` etc.
 		// -----------------------------------------------------------------------
-		if (cfg.codeEnabled && ch === '`') {
+		if (cfg.codeEnabled && ch == '`') {
 			let tickCount = 0;
-			while (i + tickCount < raw.length && raw[i + tickCount] === '`') tickCount++;
+			while (i + tickCount < raw.length && raw[i + tickCount] == '`') tickCount++;
 
 			const closeIdx = findBacktickClose(raw, i + tickCount, tickCount);
-			if (closeIdx !== -1) {
+			if (closeIdx != -1) {
 				flushText(i);
 				const inner = raw.slice(i + tickCount, closeIdx);
 				// CommonMark: strip exactly one leading/trailing space when both present
 				// and content is not all spaces.
 				const content =
 					inner.length > 0 &&
-					inner[0] === ' ' &&
-					inner[inner.length - 1] === ' ' &&
-					inner.trim() !== ''
+					inner[0] == ' ' &&
+					inner[inner.length - 1] == ' ' &&
+					inner.trim() != ''
 						? inner.slice(1, -1)
 						: inner;
 				tokens.push({
@@ -316,7 +316,7 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 		// -----------------------------------------------------------------------
 		// Strikethrough: configurable delimiter (default ~~)
 		// -----------------------------------------------------------------------
-		if (cfg.strikeEnabled && ch === cfg.strikeTrigger) {
+		if (cfg.strikeEnabled && ch == cfg.strikeTrigger) {
 			const delim = cfg.strikeDelimiter;
 			const delimLen = delim.length;
 
@@ -332,7 +332,7 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 					j++;
 				}
 
-				if (closeIdx !== -1) {
+				if (closeIdx != -1) {
 					flushText(i);
 					tokens.push({
 						type: 'strike',
@@ -354,13 +354,13 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 		// -----------------------------------------------------------------------
 		// Emphasis: * ** *** and _ __ ___
 		// -----------------------------------------------------------------------
-		if (ch === '*' || ch === '_') {
+		if (ch == '*' || ch == '_') {
 			const delimChar = ch;
 
 			// Underscore opening guard: skip if preceded by a word char
-			if (delimChar === '_') {
+			if (delimChar == '_') {
 				const before = i > 0 ? raw[i - 1] : null;
-				if (before !== null && /\w/.test(before)) {
+				if (before != null && /\w/.test(before)) {
 					appendText(i);
 					i++;
 					continue;
@@ -369,20 +369,20 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 
 			// Count the full opening run
 			let openCount = 0;
-			while (i + openCount < raw.length && raw[i + openCount] === delimChar) openCount++;
+			while (i + openCount < raw.length && raw[i + openCount] == delimChar) openCount++;
 
 			const excess = Math.max(0, openCount - 3);
 			const len = Math.min(openCount, 3);
 
 			// Is this delimiter length enabled?
 			const lenEnabled =
-				(len === 3 && cfg.boldItalicEnabled) ||
-				(len === 2 && cfg.boldEnabled) ||
-				(len === 1 && cfg.italicEnabled);
+				(len == 3 && cfg.boldItalicEnabled) ||
+				(len == 2 && cfg.boldEnabled) ||
+				(len == 1 && cfg.italicEnabled);
 
 			const closeIdx = lenEnabled ? findEmphasisClose(raw, i + openCount, delimChar, len) : -1;
 
-			if (closeIdx !== -1) {
+			if (closeIdx != -1) {
 				flushText(i);
 				if (excess > 0) {
 					tokens.push({
@@ -395,7 +395,7 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 				}
 				const tokenStart = i + excess;
 				/** @type {InlineTokenType} */
-				const type = len === 3 ? 'bold_italic' : len === 2 ? 'bold' : 'italic';
+				const type = len == 3 ? 'bold_italic' : len == 2 ? 'bold' : 'italic';
 				tokens.push({
 					type,
 					raw: raw.slice(tokenStart, closeIdx + len),
@@ -415,15 +415,15 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 		// -----------------------------------------------------------------------
 		// Image: ![alt](url)  — checked before link because both start with `[`
 		// -----------------------------------------------------------------------
-		if (cfg.imageEnabled && ch === '!' && raw[i + 1] === '[') {
+		if (cfg.imageEnabled && ch == '!' && raw[i + 1] == '[') {
 			const bracketOpen = i + 2;
 			const bracketClose = findClosingBracket(raw, bracketOpen);
 
-			if (bracketClose !== -1 && raw[bracketClose + 1] === '(') {
+			if (bracketClose != -1 && raw[bracketClose + 1] == '(') {
 				const parenOpen = bracketClose + 2;
 				const parenClose = findClosingParen(raw, parenOpen);
 
-				if (parenClose !== -1) {
+				if (parenClose != -1) {
 					flushText(i);
 					const alt = raw.slice(bracketOpen, bracketClose);
 					const href = raw.slice(parenOpen, parenClose);
@@ -448,15 +448,15 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 		// -----------------------------------------------------------------------
 		// Link: [text](url)
 		// -----------------------------------------------------------------------
-		if (cfg.linkEnabled && ch === '[') {
+		if (cfg.linkEnabled && ch == '[') {
 			const bracketOpen = i + 1;
 			const bracketClose = findClosingBracket(raw, bracketOpen);
 
-			if (bracketClose !== -1 && raw[bracketClose + 1] === '(') {
+			if (bracketClose != -1 && raw[bracketClose + 1] == '(') {
 				const parenOpen = bracketClose + 2;
 				const parenClose = findClosingParen(raw, parenOpen);
 
-				if (parenClose !== -1) {
+				if (parenClose != -1) {
 					flushText(i);
 					const label = raw.slice(bracketOpen, bracketClose);
 					const href = raw.slice(parenOpen, parenClose);
@@ -486,7 +486,7 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
 
 	flushText(raw.length);
 	return tokens;
-}
+};
 
 // ---------------------------------------------------------------------------
 // Public factory
@@ -514,7 +514,7 @@ function tokenizeInlineWithConfig(raw, contentStart, cfg) {
  *   tokenizeBlock:  (block: import('./types.js').Block, contentStart: number) => InlineToken[],
  * }}
  */
-export function createInlineParser(options = {}) {
+export const createInlineParser = (options = {}) => {
 	const cfg = compileInlineConfig(options);
 
 	return {
@@ -539,21 +539,21 @@ export function createInlineParser(options = {}) {
 			return tokenizeInlineWithConfig(block.raw, contentStart, cfg);
 		},
 	};
-}
+};
 
 // ---------------------------------------------------------------------------
 // Default parser instance + standalone convenience exports
 // ---------------------------------------------------------------------------
 
 /** The default inline parser (all built-in features enabled, no custom rules). */
-const _defaultInlineParser = createInlineParser();
+const defaultInlineParser = createInlineParser();
 
 /**
  * Tokenize a single line of raw markdown into an array of inline tokens.
  * Uses the default tokenizer (all features enabled, no custom rules).
  *
  * All `token.start` and `token.end` values are byte offsets within `raw`.
- * Invariant: `raw.slice(token.start, token.end) === token.raw`.
+ * Invariant: `raw.slice(token.start, token.end) == token.raw`.
  *
  * ```js
  * import { parseBlocks, getBlockContentStart } from './block.js';
@@ -572,9 +572,8 @@ const _defaultInlineParser = createInlineParser();
  * @param {number} [contentStart=0]
  * @returns {InlineToken[]}
  */
-export function tokenizeInline(raw, contentStart = 0) {
-	return _defaultInlineParser.tokenizeInline(raw, contentStart);
-}
+export const tokenizeInline = (raw, contentStart = 0) =>
+	defaultInlineParser.tokenizeInline(raw, contentStart);
 
 /**
  * Tokenize the inline content of a Block, skipping the block-level prefix.
@@ -592,6 +591,5 @@ export function tokenizeInline(raw, contentStart = 0) {
  * @param {number} contentStart - From `getBlockContentStart(block)`
  * @returns {InlineToken[]}
  */
-export function tokenizeBlock(block, contentStart) {
-	return _defaultInlineParser.tokenizeBlock(block, contentStart);
-}
+export const tokenizeBlock = (block, contentStart) =>
+	defaultInlineParser.tokenizeBlock(block, contentStart);

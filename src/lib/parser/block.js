@@ -43,9 +43,7 @@
  * @param {string} s
  * @returns {string}
  */
-function escapeRegex(s) {
-	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Build the block-level regex pair for fence delimiters from an array of
@@ -57,13 +55,13 @@ function escapeRegex(s) {
  * @param {string[]} chars
  * @returns {{ open: RegExp, close: RegExp }}
  */
-function buildFenceRegexes(chars) {
+const buildFenceRegexes = (chars) => {
 	const alts = chars.map((c) => `${escapeRegex(c)}{3,}`).join('|');
 	return {
 		open: new RegExp(`^(${alts})(.*)`),
 		close: new RegExp(`^(${alts})\\s*$`),
 	};
-}
+};
 
 // Default fence regexes (used by the default parser instance)
 const DEFAULT_FENCE = buildFenceRegexes(['`', '~']);
@@ -113,14 +111,14 @@ const BLANK_RE = /^\s*$/;
  * @param {BlockParserOptions} [options]
  * @returns {CompiledBlockConfig}
  */
-function compileBlockConfig(options = {}) {
+const compileBlockConfig = (options = {}) => {
 	const fenceOpts = options.codeFence;
-	const codeFenceEnabled = fenceOpts !== false;
+	const codeFenceEnabled = fenceOpts != false;
 
 	let fenceOpen = DEFAULT_FENCE.open;
 	let fenceClose = DEFAULT_FENCE.close;
 
-	if (codeFenceEnabled && typeof fenceOpts === 'object' && fenceOpts !== null) {
+	if (codeFenceEnabled && typeof fenceOpts == 'object' && fenceOpts != null) {
 		const chars = fenceOpts.chars;
 		if (Array.isArray(chars) && chars.length > 0) {
 			const built = buildFenceRegexes(chars);
@@ -130,16 +128,16 @@ function compileBlockConfig(options = {}) {
 	}
 
 	return {
-		headingEnabled: options.heading !== false,
+		headingEnabled: options.heading != false,
 		codeFenceEnabled,
 		fenceOpen,
 		fenceClose,
-		blockquoteEnabled: options.blockquote !== false,
-		listEnabled: options.list !== false,
-		hrEnabled: options.hr !== false,
+		blockquoteEnabled: options.blockquote != false,
+		listEnabled: options.list != false,
+		hrEnabled: options.hr != false,
 		customRules: options.custom ?? [],
 	};
-}
+};
 
 // ---------------------------------------------------------------------------
 // Core parse function (takes a compiled config)
@@ -152,11 +150,11 @@ function compileBlockConfig(options = {}) {
  * @param {BlockMeta | boolean | null | undefined} result
  * @returns {BlockMeta | null}
  */
-function resolveCustomMeta(result) {
+const resolveCustomMeta = (result) => {
 	if (!result) return null; // false, null, undefined
-	if (typeof result === 'object') return result; // BlockMeta object
+	if (typeof result == 'object') return result; // BlockMeta object
 	return {}; // true or other truthy
-}
+};
 
 /**
  * Internal implementation of block parsing. Accepts a pre-compiled config
@@ -166,7 +164,7 @@ function resolveCustomMeta(result) {
  * @param {CompiledBlockConfig} cfg
  * @returns {Block[]}
  */
-function parseBlocksWithConfig(raw, cfg) {
+const parseBlocksWithConfig = (raw, cfg) => {
 	const lines = raw.split('\n');
 	/** @type {Block[]} */
 	const blocks = [];
@@ -186,7 +184,7 @@ function parseBlocksWithConfig(raw, cfg) {
 			const closeMatch = line.match(cfg.fenceClose);
 			if (
 				closeMatch &&
-				closeMatch[1][0] === fenceMarker[0] && // same fence character
+				closeMatch[1][0] == fenceMarker[0] && // same fence character
 				closeMatch[1].length >= fenceMarker.length // at least as long
 			) {
 				blocks.push({ raw: line, type: 'code_fence_close', meta: { lang: fenceLang }, lineIndex });
@@ -218,7 +216,7 @@ function parseBlocksWithConfig(raw, cfg) {
 			for (const rule of cfg.customRules) {
 				const result = rule.test(line, ctx);
 				const meta = resolveCustomMeta(result);
-				if (meta !== null) {
+				if (meta != null) {
 					blocks.push({ raw: line, type: rule.type, meta, lineIndex });
 					claimed = true;
 					break;
@@ -301,7 +299,7 @@ function parseBlocksWithConfig(raw, cfg) {
 	}
 
 	return blocks;
-}
+};
 
 // ---------------------------------------------------------------------------
 // getBlockContentStart (takes compiled config for custom-rule support)
@@ -312,7 +310,7 @@ function parseBlocksWithConfig(raw, cfg) {
  * @param {CompiledBlockConfig} cfg
  * @returns {number}
  */
-function getBlockContentStartWithConfig(block, cfg) {
+const getBlockContentStartWithConfig = (block, cfg) => {
 	switch (block.type) {
 		case 'paragraph':
 		case 'blank':
@@ -321,11 +319,11 @@ function getBlockContentStartWithConfig(block, cfg) {
 		case 'heading': {
 			const level = block.meta.level ?? 1;
 			const afterHashes = block.raw[level];
-			return afterHashes === ' ' || afterHashes === '\t' ? level + 1 : level;
+			return afterHashes == ' ' || afterHashes == '\t' ? level + 1 : level;
 		}
 
 		case 'blockquote':
-			return block.raw[1] === ' ' || block.raw[1] === '\t' ? 2 : 1;
+			return block.raw[1] == ' ' || block.raw[1] == '\t' ? 2 : 1;
 
 		case 'list_item': {
 			const ulMatch = block.raw.match(UNORDERED_LIST_RE);
@@ -343,17 +341,17 @@ function getBlockContentStartWithConfig(block, cfg) {
 
 		default: {
 			// Look for a matching custom rule and use its contentStart if provided.
-			const rule = cfg.customRules.find((r) => r.type === block.type);
+			const rule = cfg.customRules.find((r) => r.type == block.type);
 			if (rule) {
 				if (rule.opaque) return block.raw.length;
-				if (typeof rule.contentStart === 'function') {
+				if (typeof rule.contentStart == 'function') {
 					return rule.contentStart(block.raw, block.meta);
 				}
 			}
 			return 0;
 		}
 	}
-}
+};
 
 // ---------------------------------------------------------------------------
 // Public factory
@@ -383,7 +381,7 @@ function getBlockContentStartWithConfig(block, cfg) {
  *   serializeBlocks:       (blocks: Block[]) => string,
  * }}
  */
-export function createBlockParser(options = {}) {
+export const createBlockParser = (options = {}) => {
 	const cfg = compileBlockConfig(options);
 
 	return {
@@ -424,14 +422,14 @@ export function createBlockParser(options = {}) {
 			return blocks.map((b) => b.raw).join('\n');
 		},
 	};
-}
+};
 
 // ---------------------------------------------------------------------------
 // Default parser instance + standalone convenience exports
 // ---------------------------------------------------------------------------
 
 /** The default block parser (all built-in features enabled, no custom rules). */
-const _defaultBlockParser = createBlockParser();
+const defaultBlockParser = createBlockParser();
 
 /**
  * Parse a full markdown document string into an array of Block objects.
@@ -447,9 +445,7 @@ const _defaultBlockParser = createBlockParser();
  * @param {string} raw
  * @returns {Block[]}
  */
-export function parseBlocks(raw) {
-	return _defaultBlockParser.parseBlocks(raw);
-}
+export const parseBlocks = (raw) => defaultBlockParser.parseBlocks(raw);
 
 /**
  * Returns the byte offset within `block.raw` where inline content begins.
@@ -471,9 +467,7 @@ export function parseBlocks(raw) {
  * @param {Block} block
  * @returns {number}
  */
-export function getBlockContentStart(block) {
-	return _defaultBlockParser.getBlockContentStart(block);
-}
+export const getBlockContentStart = (block) => defaultBlockParser.getBlockContentStart(block);
 
 /**
  * Returns the portion of `block.raw` that contains inline markdown content.
@@ -482,9 +476,7 @@ export function getBlockContentStart(block) {
  * @param {Block} block
  * @returns {string}
  */
-export function getBlockInlineRaw(block) {
-	return _defaultBlockParser.getBlockInlineRaw(block);
-}
+export const getBlockInlineRaw = (block) => defaultBlockParser.getBlockInlineRaw(block);
 
 /**
  * Serialize an array of blocks back into a raw markdown string.
@@ -493,6 +485,4 @@ export function getBlockInlineRaw(block) {
  * @param {Block[]} blocks
  * @returns {string}
  */
-export function serializeBlocks(blocks) {
-	return _defaultBlockParser.serializeBlocks(blocks);
-}
+export const serializeBlocks = (blocks) => defaultBlockParser.serializeBlocks(blocks);
