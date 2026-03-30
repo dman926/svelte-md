@@ -174,6 +174,12 @@ export interface InlineToken {
 	 */
 	alt?: string;
 
+	/**
+	 * Nested formatting tokens inside this token.
+	 * Present on wrapper tokens like bold, italic, strike, and link labels.
+	 */
+	children?: InlineToken[];
+
 	/** Open-ended extra fields for custom inline rules to attach arbitrary data. */
 	[key: string]: unknown;
 }
@@ -331,8 +337,9 @@ export interface CustomInlineRule {
 	 *
 	 * @param raw The full raw line string (including any block-level prefix).
 	 * @param i   Current scanner position (0-based byte offset).
+	 * @param end The strict upper bound for scanning (do not scan past this).
 	 */
-	scan(raw: string, i: number): InlineToken | null;
+	scan(raw: string, i: number, end: number): InlineToken | null;
 }
 
 /**

@@ -68,14 +68,15 @@
  * @param {number} from
  * @param {string} delimChar - `'*'` or `'_'`
  * @param {number} len
+ * @param {number} [maxEnd]
  * @returns {number} Index of the closing run start, or -1.
  */
-const findEmphasisClose = (str, from, delimChar, len) => {
+const findEmphasisClose = (str, from, delimChar, len, maxEnd = str.length) => {
 	let i = from;
-	while (i < str.length) {
+	while (i < maxEnd) {
 		if (str[i] == delimChar) {
 			let runLen = 0;
-			while (i + runLen < str.length && str[i + runLen] == delimChar) runLen++;
+			while (i + runLen < maxEnd && str[i + runLen] == delimChar) runLen++;
 			if (runLen == len) {
 				if (delimChar == '_') {
 					const after = str[i + runLen];
@@ -99,14 +100,15 @@ const findEmphasisClose = (str, from, delimChar, len) => {
  * @param {string} str
  * @param {number} from
  * @param {number} len
+ * @param {number} [maxEnd]
  * @returns {number}
  */
-const findBacktickClose = (str, from, len) => {
+const findBacktickClose = (str, from, len, maxEnd = str.length) => {
 	let i = from;
-	while (i < str.length) {
+	while (i < maxEnd) {
 		if (str[i] == '`') {
 			let runLen = 0;
-			while (i + runLen < str.length && str[i + runLen] == '`') runLen++;
+			while (i + runLen < maxEnd && str[i + runLen] == '`') runLen++;
 			if (runLen == len) return i;
 			i += runLen;
 		} else {
@@ -121,11 +123,12 @@ const findBacktickClose = (str, from, len) => {
  * Accounts for nested brackets.
  * @param {string} str
  * @param {number} from - Index AFTER the opening `[`.
+ * @param {number} [maxEnd]
  * @returns {number}
  */
-const findClosingBracket = (str, from) => {
+const findClosingBracket = (str, from, maxEnd = str.length) => {
 	let depth = 1;
-	for (let i = from; i < str.length; i++) {
+	for (let i = from; i < maxEnd; i++) {
 		if (str[i] == '[') depth++;
 		else if (str[i] == ']' && --depth == 0) return i;
 	}
@@ -137,11 +140,12 @@ const findClosingBracket = (str, from) => {
  * Accounts for nested parens.
  * @param {string} str
  * @param {number} from - Index AFTER the opening `(`.
+ * @param {number} [maxEnd]
  * @returns {number}
  */
-const findClosingParen = (str, from) => {
+const findClosingParen = (str, from, maxEnd = str.length) => {
 	let depth = 1;
-	for (let i = from; i < str.length; i++) {
+	for (let i = from; i < maxEnd; i++) {
 		if (str[i] == '(') depth++;
 		else if (str[i] == ')' && --depth == 0) return i;
 	}
@@ -208,14 +212,15 @@ const compileInlineConfig = (options = {}) => {
 
 /**
  * @param {string}              raw
- * @param {number}              contentStart
+ * @param {number}              scanStart
+ * @param {number}              scanEnd
  * @param {CompiledInlineConfig} cfg
  * @returns {InlineToken[]}
  */
-const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
+const tokenizeInlineWithConfig = (raw, scanStart, scanEnd, cfg) => {
 	/** @type {InlineToken[]} */
 	const tokens = [];
-	let i = contentStart;
+	let i = scanStart;
 	let textStart = -1;
 
 	/**
@@ -246,14 +251,14 @@ const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 	// -------------------------------------------------------------------------
 	// Main scan loop
 	// -------------------------------------------------------------------------
-	outer: while (i < raw.length) {
+	outer: while (i < scanEnd) {
 		const ch = raw[i];
 
 		// -----------------------------------------------------------------------
 		// Custom rules — tested first at every position
 		// -----------------------------------------------------------------------
 		for (const rule of cfg.customRules) {
-			const token = rule.scan(raw, i);
+			const token = rule.scan(raw, i, scanEnd);
 			if (token != null && token != undefined) {
 				flushText(i);
 				tokens.push(token);
@@ -265,7 +270,7 @@ const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 		// -----------------------------------------------------------------------
 		// Escape: \X
 		// -----------------------------------------------------------------------
-		if (cfg.escapeEnabled && ch == '\\' && i + 1 < raw.length) {
+		if (cfg.escapeEnabled && ch == '\\' && i + 1 < scanEnd) {
 			flushText(i);
 			tokens.push({
 				type: 'escape',
@@ -283,7 +288,7 @@ const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 		// -----------------------------------------------------------------------
 		if (cfg.codeEnabled && ch == '`') {
 			let tickCount = 0;
-			while (i + tickCount < raw.length && raw[i + tickCount] == '`') tickCount++;
+			while (i + tickCount < scanEnd && raw[i + tickCount] == '`') tickCount++;
 
 			const closeIdx = findBacktickClose(raw, i + tickCount, tickCount);
 			if (closeIdx != -1) {
@@ -324,7 +329,7 @@ const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 				// Search for the closing delimiter
 				let j = i + delimLen;
 				let closeIdx = -1;
-				while (j <= raw.length - delimLen) {
+				while (j <= scanEnd - delimLen) {
 					if (raw.startsWith(delim, j)) {
 						closeIdx = j;
 						break;
@@ -334,12 +339,14 @@ const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 
 				if (closeIdx != -1) {
 					flushText(i);
+					const innerStart = i + delimLen;
 					tokens.push({
 						type: 'strike',
 						raw: raw.slice(i, closeIdx + delimLen),
 						content: raw.slice(i + delimLen, closeIdx),
 						start: i,
 						end: closeIdx + delimLen,
+						children: tokenizeInlineWithConfig(raw, innerStart, closeIdx, cfg)
 					});
 					i = closeIdx + delimLen;
 					continue;
@@ -369,7 +376,7 @@ const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 
 			// Count the full opening run
 			let openCount = 0;
-			while (i + openCount < raw.length && raw[i + openCount] == delimChar) openCount++;
+			while (i + openCount < scanEnd && raw[i + openCount] == delimChar) openCount++;
 
 			const excess = Math.max(0, openCount - 3);
 			const len = Math.min(openCount, 3);
@@ -394,6 +401,7 @@ const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 					});
 				}
 				const tokenStart = i + excess;
+				const innerStart = tokenStart + len;
 				/** @type {InlineTokenType} */
 				const type = len == 3 ? 'bold_italic' : len == 2 ? 'bold' : 'italic';
 				tokens.push({
@@ -402,6 +410,7 @@ const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 					content: raw.slice(tokenStart + len, closeIdx),
 					start: tokenStart,
 					end: closeIdx + len,
+					children: tokenizeInlineWithConfig(raw, innerStart, closeIdx, cfg),
 				});
 				i = closeIdx + len;
 				continue;
@@ -467,6 +476,7 @@ const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 						href,
 						start: i,
 						end: parenClose + 1,
+						children: tokenizeInlineWithConfig(raw, bracketOpen, bracketClose, cfg),
 					});
 					i = parenClose + 1;
 					continue;
@@ -484,7 +494,7 @@ const tokenizeInlineWithConfig = (raw, contentStart, cfg) => {
 		i++;
 	}
 
-	flushText(raw.length);
+	flushText(scanEnd);
 	return tokens;
 };
 
@@ -525,7 +535,7 @@ export const createInlineParser = (options = {}) => {
 		 * @returns {InlineToken[]}
 		 */
 		tokenizeInline(raw, contentStart = 0) {
-			return tokenizeInlineWithConfig(raw, contentStart, cfg);
+			return tokenizeInlineWithConfig(raw, contentStart, raw.length, cfg);
 		},
 
 		/**
@@ -536,7 +546,7 @@ export const createInlineParser = (options = {}) => {
 		 */
 		tokenizeBlock(block, contentStart) {
 			if (contentStart >= block.raw.length) return [];
-			return tokenizeInlineWithConfig(block.raw, contentStart, cfg);
+			return tokenizeInlineWithConfig(block.raw, contentStart, block.raw.length, cfg);
 		},
 	};
 };
