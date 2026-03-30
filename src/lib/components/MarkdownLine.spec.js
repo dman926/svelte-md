@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, cleanup } from '@testing-library/svelte/svelte5';
+import { render, cleanup } from '@testing-library/svelte';
 import MarkdownLine from './MarkdownLine.svelte';
 import { TOKEN_ATTR, LINE_ATTR } from '../cursor/types';
 import { tok, blk } from '$lib/test-helpers';
