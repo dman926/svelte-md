@@ -37,7 +37,7 @@ function mount(editorEl) {
 describe('captureSelection — null / no-selection', () => {
 	it('returns null when there is no selection', () => {
 		const { editor } = buildEditorDom([
-			{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hello' }] },
+			{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hello' }] },
 		]);
 		mount(editor);
 		const sel = /** @type {Selection} */ (window.getSelection());
@@ -48,7 +48,7 @@ describe('captureSelection — null / no-selection', () => {
 
 	it('returns null when the selection is outside editorEl', () => {
 		const { editor } = buildEditorDom([
-			{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hi' }] },
+			{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hi' }] },
 		]);
 		mount(editor);
 
@@ -72,7 +72,7 @@ describe('captureSelection — tokenized line, text node', () => {
 	it('collapsed at start of text token → col = token.start', () => {
 		const tokens = [tok('text', 'hello', 'hello', 0)];
 		const { editor, textNodeOf } = buildEditorDom([
-			{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hello' }] },
+			{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hello' }] },
 		]);
 		mount(editor);
 
@@ -88,7 +88,7 @@ describe('captureSelection — tokenized line, text node', () => {
 	it('collapsed mid text token → col = offset', () => {
 		const tokens = [tok('text', 'hello world', 'hello world', 0)];
 		const { editor, textNodeOf } = buildEditorDom([
-			{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hello world' }] },
+			{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hello world' }] },
 		]);
 		mount(editor);
 
@@ -101,7 +101,7 @@ describe('captureSelection — tokenized line, text node', () => {
 	it('collapsed at end of text token → col = token.end', () => {
 		const tokens = [tok('text', 'hello', 'hello', 0)];
 		const { editor, textNodeOf } = buildEditorDom([
-			{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hello' }] },
+			{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hello' }] },
 		]);
 		mount(editor);
 
@@ -127,9 +127,9 @@ describe('captureSelection — bold token prefix math', () => {
 		{
 			lineIndex: 0,
 			tokens: [
-				{ tokenStart: 0, content: 'Hello ' },
-				{ tokenStart: 6, content: 'world', tag: 'strong' },
-				{ tokenStart: 15, content: '!' },
+				{ tokenStart: 0, tokenType: 'text', content: 'Hello ' },
+				{ tokenStart: 6, tokenType: 'bold', content: 'world', tag: 'strong' },
+				{ tokenStart: 15, tokenType: 'text', content: '!' },
 			],
 		},
 	];
@@ -222,8 +222,8 @@ describe('captureSelection — multi-line document', () => {
 		{
 			lineIndex: 0,
 			tokens: [
-				{ tokenStart: 0, content: 'Hello ' },
-				{ tokenStart: 6, content: 'world' },
+				{ tokenStart: 0, tokenType: 'text', content: 'Hello ' },
+				{ tokenStart: 6, tokenType: 'bold', content: 'world' },
 			],
 		},
 		{ lineIndex: 1, blank: true },
@@ -267,7 +267,9 @@ describe('captureSelection — multi-line document', () => {
 
 describe('captureSelection — range selections', () => {
 	const tokens = [tok('text', 'Hello world', 'Hello world', 0)];
-	const specs = [{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'Hello world' }] }];
+	const specs = [
+		{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'Hello world' }] },
+	];
 
 	it('forward range on same line', () => {
 		const { editor, textNodeOf } = buildEditorDom(specs);
@@ -299,8 +301,8 @@ describe('captureSelection — cross-line range', () => {
 	const line0Tokens = [tok('text', 'Hello', 'Hello', 0)];
 	const line1Tokens = [tok('text', 'World', 'World', 0)];
 	const specs = [
-		{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'Hello' }] },
-		{ lineIndex: 1, tokens: [{ tokenStart: 0, content: 'World' }] },
+		{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'Hello' }] },
+		{ lineIndex: 1, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'World' }] },
 	];
 
 	it('anchor on line 0, focus on line 1', () => {

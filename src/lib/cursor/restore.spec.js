@@ -34,7 +34,7 @@ function mount(/** @type {HTMLElement} */ el) {
 describe('resolvePointToRange — null cases', () => {
 	it('returns null when lineIndex does not exist in the DOM', () => {
 		const { editor } = buildEditorDom([
-			{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hi' }] },
+			{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hi' }] },
 		]);
 		mount(editor);
 		const range = resolvePointToRange(editor, { line: 99, col: 0 }, []);
@@ -45,7 +45,7 @@ describe('resolvePointToRange — null cases', () => {
 		// Line 0 has a token at start=0; we ask for a point inside a token at start=99
 		const tokens = [tok('text', 'hello', 'hello', 0)];
 		const { editor } = buildEditorDom([
-			{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hello' }] },
+			{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hello' }] },
 		]);
 		mount(editor);
 		// col=99 → findTokenAtRawCol returns last token (start=0) → token element found
@@ -61,7 +61,9 @@ describe('resolvePointToRange — null cases', () => {
 
 describe('resolvePointToRange — text token', () => {
 	const tokens = [tok('text', 'hello world', 'hello world', 0)];
-	const specs = [{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hello world' }] }];
+	const specs = [
+		{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hello world' }] },
+	];
 
 	it('col 0 → range at text node offset 0', () => {
 		const { editor, textNodeOf } = buildEditorDom(specs);
@@ -105,8 +107,8 @@ describe('resolvePointToRange — bold token', () => {
 		{
 			lineIndex: 0,
 			tokens: [
-				{ tokenStart: 0, content: 'Hello ' },
-				{ tokenStart: 6, content: 'world', tag: 'strong' },
+				{ tokenStart: 0, tokenType: 'text', content: 'Hello ' },
+				{ tokenStart: 6, tokenType: 'bold', content: 'world', tag: 'strong' },
 			],
 		},
 	];
@@ -196,7 +198,9 @@ describe('resolvePointToRange — blank line', () => {
 
 describe('restoreSelection — collapsed', () => {
 	const tokens = [tok('text', 'hello world', 'hello world', 0)];
-	const specs = [{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hello world' }] }];
+	const specs = [
+		{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hello world' }] },
+	];
 
 	it('places collapsed selection at correct text node and offset', () => {
 		const { editor, textNodeOf } = buildEditorDom(specs);
@@ -234,8 +238,8 @@ describe('restoreSelection — collapsed', () => {
 			{
 				lineIndex: 0,
 				tokens: [
-					{ tokenStart: 0, content: 'Hello ' },
-					{ tokenStart: 6, content: 'world', tag: 'strong' },
+					{ tokenStart: 0, tokenType: 'text', content: 'Hello ' },
+					{ tokenStart: 6, tokenType: 'bold', content: 'world', tag: 'strong' },
 				],
 			},
 		]);
@@ -251,7 +255,7 @@ describe('restoreSelection — collapsed', () => {
 
 	it('no-op when anchor line does not exist', () => {
 		const { editor } = buildEditorDom([
-			{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hi' }] },
+			{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hi' }] },
 		]);
 		mount(editor);
 		// Should not throw
@@ -265,7 +269,9 @@ describe('restoreSelection — collapsed', () => {
 
 describe('restoreSelection — forward range selection', () => {
 	const tokens = [tok('text', 'hello world', 'hello world', 0)];
-	const specs = [{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'hello world' }] }];
+	const specs = [
+		{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hello world' }] },
+	];
 
 	it('places anchor and focus at correct offsets', () => {
 		const { editor } = buildEditorDom(specs);
@@ -288,8 +294,8 @@ describe('restoreSelection — cross-line range', () => {
 	const line0Tokens = [tok('text', 'Hello', 'Hello', 0)];
 	const line1Tokens = [tok('text', 'World', 'World', 0)];
 	const specs = [
-		{ lineIndex: 0, tokens: [{ tokenStart: 0, content: 'Hello' }] },
-		{ lineIndex: 1, tokens: [{ tokenStart: 0, content: 'World' }] },
+		{ lineIndex: 0, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'Hello' }] },
+		{ lineIndex: 1, tokens: [{ tokenStart: 0, tokenType: 'text', content: 'World' }] },
 	];
 
 	it('anchor on line 0, focus on line 1 — both resolved correctly', () => {
@@ -335,7 +341,7 @@ describe('round-trip: captureSelection then restoreSelection', () => {
 		const { editor, textNodeOf } = buildEditorDom([
 			{
 				lineIndex: 0,
-				tokens: [{ tokenStart: 0, content: 'hello world' }],
+				tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hello world' }],
 			},
 		]);
 		mount(editor);
@@ -369,8 +375,8 @@ describe('round-trip: captureSelection then restoreSelection', () => {
 			{
 				lineIndex: 0,
 				tokens: [
-					{ tokenStart: 0, content: 'Hello ' },
-					{ tokenStart: 6, content: 'world', tag: 'strong' },
+					{ tokenStart: 0, tokenType: 'text', content: 'Hello ' },
+					{ tokenStart: 6, tokenType: 'bold', content: 'world', tag: 'strong' },
 				],
 			},
 		]);
@@ -401,7 +407,7 @@ describe('round-trip: captureSelection then restoreSelection', () => {
 		const { editor, textNodeOf } = buildEditorDom([
 			{
 				lineIndex: 0,
-				tokens: [{ tokenStart: 0, content: 'hello world' }],
+				tokens: [{ tokenStart: 0, tokenType: 'text', content: 'hello world' }],
 			},
 		]);
 		mount(editor);

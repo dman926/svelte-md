@@ -4,7 +4,10 @@
 
 import { LINE_ATTR, TOKEN_ATTR } from './cursor/types.js';
 
-/** @import { InlineToken } from './parser/types'; */
+/** Attribute the patcher uses for diffing and CSS hooks. */
+export const TYPE_ATTR = 'data-md-type';
+
+/** @import { Block, InlineToken } from './parser/types'; */
 
 /**
  * Build a minimal InlineToken object.
@@ -15,10 +18,22 @@ import { LINE_ATTR, TOKEN_ATTR } from './cursor/types.js';
  * @param {string} content
  * @param {number} start
  * @param {Record<string,unknown>} [extra]
+ * @returns {InlineToken}
  */
 export function tok(type, raw, content, start, extra = {}) {
 	return { type, raw, content, start, end: start + raw.length, ...extra };
 }
+
+/**
+ * Build a minimal Block object.
+ *
+ * @param {string} type
+ * @param {string} raw
+ * @param {number} lineIndex
+ * @param {Record<string,unknown>} [meta]
+ * @returns {Block}
+ */
+export const blk = (type, raw, lineIndex, meta = {}) => ({ type, raw, lineIndex, meta });
 
 /**
  * Assert the raw-offset invariant for every token in the array:
@@ -83,7 +98,7 @@ export function assertCoverage(lineRaw, tokens, contentStart = 0) {
  *   lineIndex: number,
  *   blank?:    boolean,
  *   opaque?:   string,
- *   tokens?:   Array<{ tokenStart: number, content: string, tag?: string }>,
+ *   tokens?:   Array<{ tokenStart: number, tokenType:  string, content: string, tag?: string }>,
  * }} LineSpec
  */
 
@@ -112,8 +127,9 @@ export function assertCoverage(lineRaw, tokens, contentStart = 0) {
  * @param {LineSpec[]} specs
  * @returns {{
  *   editor: HTMLDivElement,
- *   textNodeOf: (lineIndex: number, tokenStart: number | 'opaque') => Text,
  *   lineEl:     (lineIndex: number) => HTMLElement,
+ *   tokenEl:    (lineIndex: number, tokenStart: number) => Element
+ *   textNodeOf: (lineIndex: number, tokenStart: number | 'opaque') => Text,
  * }}
  */
 export function buildEditorDom(specs) {
@@ -124,6 +140,9 @@ export function buildEditorDom(specs) {
 	 * key = `${lineIndex}:${tokenStart}`
 	 */
 	const textNodes = new Map();
+
+	/** @type {Map<string, Element>} */
+  const tokenEls = new Map();
 
 	/** @type {Map<number, HTMLElement>} */
 	const lineEls = new Map();
@@ -152,6 +171,7 @@ export function buildEditorDom(specs) {
 				const textNode = document.createTextNode(content);
 				tokenEl.appendChild(textNode);
 				lineEl.appendChild(tokenEl);
+				tokenEls.set(`${spec.lineIndex}:${tokenStart}`, tokenEl);
 				textNodes.set(`${spec.lineIndex}:${tokenStart}`, textNode);
 			}
 		}
@@ -161,6 +181,29 @@ export function buildEditorDom(specs) {
 
 	return {
 		editor,
+		
+		/**
+		 * Look up the line container element for a given lineIndex.
+		 * @param {number} lineIndex
+		 * @returns {HTMLElement}
+		*/
+		lineEl(lineIndex) {
+			const el = lineEls.get(lineIndex);
+			if (!el) throw new Error(`No line element for lineIndex ${lineIndex}`);
+			return el;
+		},
+
+		/**
+		 * Look up the token container Element for a given lineIndex and tokenStart.
+		 * @param {number} lineIndex 
+		 * @param {number} tokenStart 
+		 * @returns {Element}
+		 */
+		tokenEl(lineIndex, tokenStart) {
+      const el = tokenEls.get(`${lineIndex}:${tokenStart}`);
+      if (!el) throw new Error(`No token element for ${lineIndex}:${tokenStart}`);
+      return el;
+    },
 
 		/**
 		 * Look up the text node for a specific token on a specific line.
@@ -176,18 +219,20 @@ export function buildEditorDom(specs) {
 			if (!node) throw new Error(`No text node for key "${key}"`);
 			return node;
 		},
-
-		/**
-		 * Look up the line container element for a given lineIndex.
-		 * @param {number} lineIndex
-		 * @returns {HTMLElement}
-		 */
-		lineEl(lineIndex) {
-			const el = lineEls.get(lineIndex);
-			if (!el) throw new Error(`No line element for lineIndex ${lineIndex}`);
-			return el;
-		},
 	};
+}
+
+/**
+ * Get the identity (reference) of an element's first child with a given
+ * attribute. Used to verify in-place reuse vs replacement.
+ *
+ * @param {Element} lineEl
+ * @param {string}  attr
+ * @param {string}  value
+ * @returns {Element | null}
+ */
+export function findChild(lineEl, attr, value) {
+  return lineEl.querySelector(`[${attr}="${value}"]`);
 }
 
 // ---------------------------------------------------------------------------
