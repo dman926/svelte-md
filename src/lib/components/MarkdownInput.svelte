@@ -31,6 +31,7 @@
 		lineClass = '',
 		tokenSnippet,
 		opaqueSnippet,
+		debug,
 	}: Partial<{
 		value: string;
 		onchange: (value: string) => void;
@@ -47,6 +48,7 @@
 		lineClass: string;
 		tokenSnippet: Snippet<[InlineToken]>;
 		opaqueSnippet: Snippet<[Block]>;
+		debug: boolean;
 	}> = $props();
 
 	// ---------------------------------------------------------------------------
@@ -76,13 +78,21 @@
 	// ---------------------------------------------------------------------------
 
 	/** Parsed blocks — recomputed synchronously whenever rawValue changes. */
-	let blocks = $derived(parser.parseBlocks(rawValue));
+	let blocks = $derived.by(() => {
+		const val = parser.parseBlocks(rawValue);
+		if (debug) console.log('svelte-md debug:', { blocks: val });
+		return val;
+	});
 
 	/**
 	 * Inline tokens for every line, indexed by lineIndex.
 	 * Empty arrays for opaque/blank blocks.
 	 */
-	let tokensByLine = $derived(blocks.map((b) => parser.tokenizeBlock(b)));
+	let tokensByLine = $derived.by(() => {
+		const val = blocks.map((b) => parser.tokenizeBlock(b));
+		if (debug) console.log('svelte-md debug:', { tokensByLine: val });
+		return val;
+	});
 
 	/**
 	 * Block content start offsets, indexed by lineIndex.

@@ -19,6 +19,7 @@
 				if (!dirty) dirty = true;
 			}}
 			placeholder="Type markdown…"
+			debug
 		/>
 	</div>
 	{#if dirty}
@@ -26,6 +27,7 @@
 	{:else}
 		<button
 			type="button"
+			disabled
 			style="visibility: hidden;"
 			aria-label="Purposefully hidden button for spacing. Don't use. Doesn't do anything">a</button
 		>
