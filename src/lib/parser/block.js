@@ -87,6 +87,22 @@ const ORDERED_LIST_RE = /^(\s*)(\d+)[.)]\s+/;
 /** Blank or whitespace-only line. */
 const BLANK_RE = /^\s*$/;
 
+/**
+ * @param {string} line
+ * @returns {{ depth: number, contentStart: number }}
+ */
+const parseBlockquoteDepth = (line) => {
+	let i = 0;
+	let depth = 0;
+	while (i < line.length && line[i] == '>') {
+		depth++;
+		i++; // consume `>`
+		if (line[i] == ' ') i += line.substring(i).match(/^( {1,4})/)[0].length // consume up to 4 spaces
+		else if (line[1] == '\t') i++; // Consume tab
+	}
+	return { depth, contentStart: i };
+}
+
 // ---------------------------------------------------------------------------
 // Compiled config
 // ---------------------------------------------------------------------------
@@ -262,7 +278,8 @@ const parseBlocksWithConfig = (raw, cfg) => {
 		// 7. Blockquote
 		// -----------------------------------------------------------------------
 		if (cfg.blockquoteEnabled && BLOCKQUOTE_RE.test(line)) {
-			blocks.push({ raw: line, type: 'blockquote', meta: {}, lineIndex });
+			const { depth } = parseBlockquoteDepth(line);
+			blocks.push({ raw: line, type: 'blockquote', meta: { depth }, lineIndex });
 			continue;
 		}
 
@@ -323,7 +340,7 @@ const getBlockContentStartWithConfig = (block, cfg) => {
 		}
 
 		case 'blockquote':
-			return block.raw[1] == ' ' || block.raw[1] == '\t' ? 2 : 1;
+			return parseBlockquoteDepth(block.raw).contentStart;
 
 		case 'list_item': {
 			const ulMatch = block.raw.match(UNORDERED_LIST_RE);

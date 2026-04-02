@@ -58,6 +58,12 @@ export interface BlockMeta {
 	 */
 	indent?: number;
 
+	/**
+	 * Nesting depth of a blockquote, counted by consecutive `>` prefixes.
+	 * Present on `blockquote` blocks.
+	 */
+	depth?: number;
+
 	/** Open-ended extra fields for custom block rules to attach arbitrary data. */
 	[key: string]: unknown;
 }
