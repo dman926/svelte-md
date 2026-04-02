@@ -6,7 +6,7 @@
 	let {
 		block,
 		tokens = [],
-		lineTag = 'div',
+		lineTag: givenLineTag,
 		lineClass = '',
 		tokenSnippet,
 		opaqueSnippet,
@@ -14,7 +14,7 @@
 		block: Block;
 		tokens?: InlineToken[];
 		/** @default 'div' */
-		lineTag?: string;
+		lineTag?: string | ((block: Block) => string);
 		lineClass?: string;
 		tokenSnippet?: Snippet<[InlineToken]>;
 		opaqueSnippet?: Snippet<[Block]>;
@@ -26,9 +26,24 @@
 	 * elements or the cursor module will mis-map positions.
 	 */
 	const OPAQUE_TYPES = new Set(['code_fence_open', 'code_fence_body', 'code_fence_close', 'hr']);
+	const isOpaque = $derived(OPAQUE_TYPES.has(block.type));
 
-	let isOpaque = $derived(OPAQUE_TYPES.has(block.type));
-	let isBlank = $derived(block.type === 'blank');
+	const lineTag = $derived.by(() => {
+		if (typeof givenLineTag == 'string') return givenLineTag;
+		switch (block.type) {
+			case 'blockquote':
+				return 'blockquote';
+			case 'paragraph':
+				return 'p';
+			case 'heading':
+				return `h${block.meta.level ?? 1}`;
+			case 'list_item':
+				return 'li';
+			default:
+				if (typeof givenLineTag == 'function') return givenLineTag(block);
+				return 'div';
+		}
+	});
 </script>
 
 <!--@component
@@ -88,10 +103,10 @@
 	data-md-line={block.lineIndex}
 	data-md-block-type={block.type}
 >
-	{#if isBlank}
-		<!-- Blank line: browser needs a <br> to give the line a height and allow
-         the cursor to sit on it. No data-md-token elements here. -->
+	{#if block.type == 'blank'}
 		<br />
+	{:else if block.type == 'hr'}
+		<hr />
 	{:else if isOpaque}
 		<!-- Opaque block: raw content rendered as-is. The serializer reads back
          lineEl.textContent for these lines. -->

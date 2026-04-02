@@ -5,3 +5,12 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+blockquote {
+	margin: 0;
+	font-size: inherit;
+	padding: 0 15px;
+	color: #5c5c5c;
+	background-color: #f0f0f0;
+	border-left: 4px solid #d6d6d6;
+}

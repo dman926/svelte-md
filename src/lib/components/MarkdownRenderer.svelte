@@ -213,7 +213,6 @@
 						<MarkdownLine
 							{block}
 							tokens={tokensByLine[block.lineIndex] ?? []}
-							lineTag="li"
 							{lineClass}
 							{tokenSnippet}
 							{opaqueSnippet}
@@ -256,19 +255,11 @@
 					block={group.open}
 					tokens={[]}
 					lineClass={`${lineClass} md-code-fence-open`.trim()}
-					tokenSnippet={undefined}
-					opaqueSnippet={undefined}
 				/>
 			{/if}
 
 				{#each group.body as block (block.lineIndex)}
-				<MarkdownLine
-					{block}
-					tokens={[]}
-					lineClass={`${lineClass} md-code-fence-body`.trim()}
-					tokenSnippet={undefined}
-					opaqueSnippet={undefined}
-				/>
+				<MarkdownLine {block} tokens={[]} lineClass={`${lineClass} md-code-fence-body`.trim()} />
 			{/each}
 
 				{#if group.close?.raw.trim()}
@@ -276,8 +267,6 @@
 					block={group.close!}
 					tokens={[]}
 					lineClass={`${lineClass} md-code-fence-close`.trim()}
-					tokenSnippet={undefined}
-					opaqueSnippet={undefined}
 				/>
 			{/if}
 			</pre>
