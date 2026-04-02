@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { Block, InlineToken } from '../parser/types';
+	import MarkdownToken from './MarkdownToken.svelte';
 
 	let {
 		block,
@@ -57,7 +58,6 @@
   | `text`       | `<span>`      | plain text                         |
   | `bold`       | `<strong>`    |                                    |
   | `italic`     | `<em>`        |                                    |
-  | `bold_italic`| `<strong>`    | contains `<em>` child              |
   | `code`       | `<code>`      |                                    |
   | `strike`     | `<s>`         |                                    |
   | `link`       | `<span>`      | not `<a>` — in-editor, not navigation |
@@ -105,44 +105,7 @@
          Svelte's keyed #each reuses elements when token.start is stable,
          minimising DOM mutations on re-renders. -->
 		{#each tokens as token (token.start)}
-			{#if tokenSnippet}
-				{@render tokenSnippet(token)}
-			{:else}
-				<!--
-          Default token rendering.
-          data-md-token is required by the cursor module.
-          data-md-type is a CSS styling hook.
-        -->
-				{#if token.type === 'bold'}
-					<strong data-md-token={token.start} data-md-type="bold">{token.content}</strong>
-				{:else if token.type === 'italic'}
-					<em data-md-token={token.start} data-md-type="italic">{token.content}</em>
-				{:else if token.type === 'bold_italic'}
-					<!-- The outer element carries data-md-token; the cursor module's
-               firstTextNode() walker finds the text inside the <em>. -->
-					<strong data-md-token={token.start} data-md-type="bold_italic"
-						><em>{token.content}</em></strong
-					>
-				{:else if token.type === 'code'}
-					<code data-md-token={token.start} data-md-type="code">{token.content}</code>
-				{:else if token.type === 'strike'}
-					<s data-md-token={token.start} data-md-type="strike">{token.content}</s>
-				{:else if token.type === 'link'}
-					<!-- Rendered as <span> rather than <a> so the link is not
-               navigable while editing. Consumers can use tokenSnippet
-               to render <a href={token.href}> for display contexts. -->
-					<span data-md-token={token.start} data-md-type="link">{token.content}</span>
-				{:else if token.type === 'image'}
-					<!-- Alt text only; image is not displayed inline in the editor. -->
-					<span data-md-token={token.start} data-md-type="image">{token.content}</span>
-				{:else if token.type === 'escape'}
-					<span data-md-token={token.start} data-md-type="escape">{token.content}</span>
-				{:else}
-					<!-- Custom or unknown token type — plain <span> with data-md-type
-               set to the token's type string for CSS targeting. -->
-					<span data-md-token={token.start} data-md-type={token.type}>{token.content}</span>
-				{/if}
-			{/if}
+			<MarkdownToken {token} {tokenSnippet} />
 		{/each}
 	{/if}
 </svelte:element>

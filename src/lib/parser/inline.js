@@ -35,18 +35,18 @@
  *
  * ## Supported inline syntax (all configurable)
  *
- * | Syntax          | Token type  | Notes                               |
- * |-----------------|-------------|-------------------------------------|
- * | `\X`            | escape      | Any ASCII punctuation after `\`     |
- * | `` `code` ``    | code        | Any backtick run length             |
- * | `~~text~~`      | strike      | Delimiter configurable              |
- * | `***text***`    | bold_italic | `___` also works                    |
- * | `**text**`      | bold        | `__` also works                     |
- * | `*text*`        | italic      | `_` with word-boundary guard        |
- * | `![alt](url)`   | image       |                                     |
- * | `[text](url)`   | link        |                                     |
- * | (custom rules)  | any string  | Runs before all built-in handlers   |
- * | (everything else) | text      |                                     |
+ * | Syntax          | Token type      | Notes                               |
+ * |-----------------|-----------------|-------------------------------------|
+ * | `\X`            | escape          | Any ASCII punctuation after `\`     |
+ * | `` `code` ``    | code            | Any backtick run length             |
+ * | `~~text~~`      | strike          | Delimiter configurable              |
+ * | `***text***`    | bold and italic | `___` also works                    |
+ * | `**text**`      | bold            | `__` also works                     |
+ * | `*text*`        | italic          | `_` with word-boundary guard        |
+ * | `![alt](url)`   | image           |                                     |
+ * | `[text](url)`   | link            |                                     |
+ * | (custom rules)  | any string      | Runs before all built-in handlers   |
+ * | (everything else) | text          |                                     |
  */
 
 /**
@@ -198,8 +198,6 @@ const compileInlineConfig = (options = {}) => {
 		strikeTrigger: strikeDelimiter[0] ?? '~',
 		boldEnabled,
 		italicEnabled,
-		// bold_italic requires both to be on; otherwise *** is ambiguous
-		boldItalicEnabled: boldEnabled && italicEnabled,
 		linkEnabled: options.link != false,
 		imageEnabled: options.image != false,
 		customRules: options.custom ?? [],
@@ -346,7 +344,7 @@ const tokenizeInlineWithConfig = (raw, scanStart, scanEnd, cfg) => {
 						content: raw.slice(i + delimLen, closeIdx),
 						start: i,
 						end: closeIdx + delimLen,
-						children: tokenizeInlineWithConfig(raw, innerStart, closeIdx, cfg)
+						children: tokenizeInlineWithConfig(raw, innerStart, closeIdx, cfg),
 					});
 					i = closeIdx + delimLen;
 					continue;
@@ -403,7 +401,7 @@ const tokenizeInlineWithConfig = (raw, scanStart, scanEnd, cfg) => {
 				const tokenStart = i + excess;
 				const innerStart = tokenStart + len;
 				/** @type {InlineTokenType} */
-				const type = len == 3 ? 'bold_italic' : len == 2 ? 'bold' : 'italic';
+				const type = len == 2 ? 'bold' : 'italic';
 				tokens.push({
 					type,
 					raw: raw.slice(tokenStart, closeIdx + len),

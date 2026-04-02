@@ -198,7 +198,7 @@ describe('tokenizeInline — strike', () => {
 });
 
 // ---------------------------------------------------------------------------
-// italic, bold, bold_italic
+// italic, bold
 // ---------------------------------------------------------------------------
 
 describe('tokenizeInline — italic (*)', () => {
@@ -265,26 +265,6 @@ describe('tokenizeInline — bold', () => {
 	it('unclosed ** → text', () => {
 		const t = tokenize('**not bold');
 		expect(t[0].type).toBe('text');
-	});
-});
-
-describe('tokenizeInline — bold_italic', () => {
-	it('***bold_italic***', () => {
-		const t = tokenize('***bold_italic***');
-		expect(t[0]).toMatchObject({ type: 'bold_italic', content: 'bold_italic', start: 0, end: 17 });
-	});
-
-	it('___bold_italic___', () => {
-		const t = tokenize('___bold_italic___');
-		expect(t[0]).toMatchObject({ type: 'bold_italic', content: 'bold_italic' });
-	});
-
-	it('excess delimiters (4+) — no match possible since closing run must be exact length', () => {
-		// openCount=4, excess=1, len=3; but closing `****` is a 4-run, not 3 → skipped.
-		// findEmphasisClose returns -1 → entire `****text****` is one text token.
-		const t = tokenize('****text****');
-		expect(t).toHaveLength(1);
-		expect(t[0]).toMatchObject({ type: 'text', content: '****text****' });
 	});
 });
 
@@ -492,18 +472,6 @@ describe('createInlineParser — feature flags', () => {
 		const { tokenizeInline: ti } = createInlineParser({ italic: false });
 		const t = ti('*italic*');
 		expect(t[0].type).toBe('text');
-	});
-
-	it('bold_italic is disabled when italic is false', () => {
-		const { tokenizeInline: ti } = createInlineParser({ italic: false });
-		const t = ti('***bi***');
-		expect(t.some((tk) => tk.type === 'bold_italic')).toBe(false);
-	});
-
-	it('bold_italic is disabled when bold is false', () => {
-		const { tokenizeInline: ti } = createInlineParser({ bold: false });
-		const t = ti('***bi***');
-		expect(t.some((tk) => tk.type === 'bold_italic')).toBe(false);
 	});
 
 	it('strike: false → ~~ is plain text', () => {

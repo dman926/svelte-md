@@ -127,15 +127,6 @@ describe('serializeLine — paragraph tokens', () => {
 		expect(serializeLine(lineEl, block, tokens, 0)).toBe('*hi*');
 	});
 
-	it('bold_italic: wraps in *** delimiters', () => {
-		const tokens = [tok('bold_italic', '***wow***', 'wow', 0)];
-		const lineEl = tokenizedLineEl([
-			{ start: 0, type: 'bold_italic', content: 'wow', tag: 'strong' },
-		]);
-		const block = blk('paragraph', '***wow***', 0);
-		expect(serializeLine(lineEl, block, tokens, 0)).toBe('***wow***');
-	});
-
 	it('code token: wraps in ` delimiters', () => {
 		const tokens = [tok('code', '`fn()`', 'fn()', 0)];
 		const lineEl = tokenizedLineEl([{ start: 0, type: 'code', content: 'fn()', tag: 'code' }]);

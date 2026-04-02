@@ -49,10 +49,6 @@ describe('getTokenPrefixLen', () => {
 		expect(getTokenPrefixLen(tok('bold', '__hi__', 'hi', 0))).toBe(2);
 	});
 
-	it('bold_italic ***hi*** → 3', () => {
-		expect(getTokenPrefixLen(tok('bold_italic', '***hi***', 'hi', 0))).toBe(3);
-	});
-
 	it('code `hi` → 1', () => {
 		expect(getTokenPrefixLen(tok('code', '`hi`', 'hi', 0))).toBe(1);
 	});
@@ -272,7 +268,6 @@ describe('round-trip: domOffsetToRawCol( rawColToDomOffset(token, col) ) === col
 		tok('bold', '**world**', 'world', 6),
 		tok('italic', '*cool*', 'cool', 15),
 		tok('code', '`fn()`', 'fn()', 22),
-		tok('bold_italic', '***hi***', 'hi', 28),
 		tok('escape', '\\*', '*', 36),
 		tok('strike', '~~text~~', 'text', 38),
 		{ ...tok('link', '[a](b)', 'a', 46), href: 'b' },

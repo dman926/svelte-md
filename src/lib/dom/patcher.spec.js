@@ -68,19 +68,6 @@ describe('createTokenElement', () => {
 		const el = createTokenElement(tok('text', 'hello world', 'hello world', 0));
 		expect(el.textContent).toBe('hello world');
 	});
-
-	it('bold_italic → <strong> containing <em>', () => {
-		const el = createTokenElement(tok('bold_italic', '***hi***', 'hi', 0));
-		expect(el.tagName).toBe('STRONG');
-		const em = el.querySelector('em');
-		expect(em).not.toBeNull();
-		expect(em?.textContent).toBe('hi');
-	});
-
-	it('bold_italic: data-md-type is set on the outer <strong>', () => {
-		const el = createTokenElement(tok('bold_italic', '***hi***', 'hi', 0));
-		expect(el.getAttribute(TYPE_ATTR)).toBe('bold_italic');
-	});
 });
 
 // ---------------------------------------------------------------------------
@@ -325,38 +312,6 @@ describe('patchLine — custom createElement', () => {
 			createElement: factory,
 		});
 		expect(callCount).toBe(1);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// patchLine — bold_italic nesting
-// ---------------------------------------------------------------------------
-
-describe('patchLine — bold_italic nesting', () => {
-	it('creates <strong><em>content</em></strong> structure', () => {
-		const lineEl = document.createElement('div');
-		patchLine(lineEl, blk('paragraph', '***hi***', 0), [tok('bold_italic', '***hi***', 'hi', 0)]);
-		const strong = lineEl.querySelector('strong');
-		expect(strong).not.toBeNull();
-		const em = strong?.querySelector('em');
-		expect(em).not.toBeNull();
-		expect(em?.textContent).toBe('hi');
-	});
-
-	it('bold_italic reuse: updates em text content in place', () => {
-		const lineEl = document.createElement('div');
-		patchLine(lineEl, blk('paragraph', '***old***', 0), [
-			tok('bold_italic', '***old***', 'old', 0),
-		]);
-		const strong = lineEl.querySelector('strong');
-		const em = strong?.querySelector('em');
-
-		patchLine(lineEl, blk('paragraph', '***new***', 0), [
-			tok('bold_italic', '***new***', 'new', 0),
-		]);
-
-		expect(lineEl.querySelector('strong')).toBe(strong);
-		expect(em?.textContent).toBe('new');
 	});
 });
 

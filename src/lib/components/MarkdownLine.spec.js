@@ -176,14 +176,6 @@ describe('MarkdownLine — default token element tags', () => {
 		expect(el?.querySelector('em[data-md-type="italic"]')).not.toBeNull();
 	});
 
-	it('bold_italic → <strong><em>', () => {
-		const el = renderSingleToken('bold_italic', '***hi***', 'hi');
-		const strong = el?.querySelector('strong[data-md-type="bold_italic"]');
-		expect(strong).not.toBeNull();
-		expect(strong?.querySelector('em')).not.toBeNull();
-		expect(strong?.querySelector('em')?.textContent).toBe('hi');
-	});
-
 	it('code → <code>', () => {
 		const el = renderSingleToken('code', '`fn()`', 'fn()');
 		expect(el?.querySelector('code[data-md-type="code"]')).not.toBeNull();

@@ -97,7 +97,6 @@ export interface Block {
  * - `text`        — Unstyled plain text
  * - `bold`        — `**text**` or `__text__`
  * - `italic`      — `*text*` or `_text_`
- * - `bold_italic` — `***text***` or `___text___`
  * - `code`        — `` `code` `` or ``` ``code`` ```
  * - `link`        — `[label](url)`
  * - `image`       — `![alt](url)`
@@ -108,7 +107,6 @@ export type InlineTokenType =
 	| 'text'
 	| 'bold'
 	| 'italic'
-	| 'bold_italic'
 	| 'code'
 	| 'link'
 	| 'image'

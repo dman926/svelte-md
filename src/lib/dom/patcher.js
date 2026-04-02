@@ -68,8 +68,6 @@ function defaultTagFor(tokenType) {
 	switch (tokenType) {
 		case 'bold':
 			return 'strong';
-		case 'bold_italic':
-			return 'strong'; // content is wrapped in <em> inside
 		case 'italic':
 			return 'em';
 		case 'code':
@@ -78,26 +76,6 @@ function defaultTagFor(tokenType) {
 			return 's';
 		default:
 			return 'span';
-	}
-}
-
-/**
- * Set the text content of a token element, handling `bold_italic` which
- * nests an `<em>` inside `<strong>`.
- *
- * @param {Element}     el
- * @param {InlineToken} token
- */
-function setTokenContent(el, token) {
-	if (token.type === 'bold_italic') {
-		let em = el.querySelector('em');
-		if (!em) {
-			em = document.createElement('em');
-			el.replaceChildren(em);
-		}
-		if (em.textContent !== token.content) em.textContent = token.content;
-	} else {
-		if (el.textContent !== token.content) el.textContent = token.content;
 	}
 }
 
@@ -136,7 +114,7 @@ export function createTokenElement(token) {
 	const el = document.createElement(tag);
 	el.setAttribute(TOKEN_ATTR, String(token.start));
 	el.setAttribute(TYPE_ATTR, token.type);
-	setTokenContent(el, token);
+	el.textContent = token.content;
 	return el;
 }
 
@@ -217,7 +195,7 @@ export function patchLine(lineEl, newBlock, newTokens, options = {}) {
 			if (existing.getAttribute(TOKEN_ATTR) !== String(token.start)) {
 				existing.setAttribute(TOKEN_ATTR, String(token.start));
 			}
-			setTokenContent(existing, token);
+			existing.textContent = token.content;
 			finalEls[i] = existing;
 		} else {
 			// ── Replace ───────────────────────────────────────────────────────────

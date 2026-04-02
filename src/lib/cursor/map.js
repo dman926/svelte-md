@@ -23,7 +23,6 @@
  * | `image`      | `![alt](url)`    | 2      | `](url)`.len | hardcoded    |
  * | `italic`     | `*hi*`           | 1      | 1      | (raw−content)/2     |
  * | `bold`       | `**hi**`         | 2      | 2      | (raw−content)/2     |
- * | `bold_italic`| `***hi***`       | 3      | 3      | (raw−content)/2     |
  * | `code`       | `` `hi` ``       | 1      | 1      | (raw−content)/2     |
  * | `code`+space | `` ` hi ` ``     | 2      | 2      | (raw−content)/2     |
  * | `strike`     | `~~hi~~`         | 2      | 2      | (raw−content)/2     |
@@ -78,7 +77,6 @@ export function getTokenPrefixLen(token) {
 		// All other built-in token types are symmetric (same opener and closer).
 		// `italic`   (*/*/)       : (raw − content) / 2 = 1
 		// `bold`     (**/**/)     : (raw − content) / 2 = 2
-		// `bold_italic` (***/***/): (raw − content) / 2 = 3
 		// `code`     (` ` / ``...``): (raw − content) / 2 = N ticks [± 1 space]
 		// `strike`   (~~/ custom) : (raw − content) / 2 = delimLen
 		// Custom symmetric rules follow the same pattern.
