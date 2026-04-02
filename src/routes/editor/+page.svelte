@@ -42,6 +42,7 @@
 		white-space: pre;
 		overflow-x: auto;
 		border: 1px solid black;
+		padding: 0.25rem 0.5rem;
 		min-height: 2.5em;
 		border-radius: 1em;
 	}
@@ -54,5 +55,6 @@
 	.md-input {
 		border: 1px solid black;
 		border-radius: 1em;
+		padding: 0.25rem 0.5rem;
 	}
 </style>

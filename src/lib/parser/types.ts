@@ -53,14 +53,8 @@ export interface BlockMeta {
 	listMarker?: string;
 
 	/**
-	 * Number of leading space characters before the list marker.
-	 * Used to determine nesting depth. Present on `list_item` blocks.
-	 */
-	indent?: number;
-
-	/**
-	 * Nesting depth of a blockquote, counted by consecutive `>` prefixes.
-	 * Present on `blockquote` blocks.
+	 * Nesting depth of a list or blockquote.
+	 * Present on `list_item` and `blockquote` blocks.
 	 */
 	depth?: number;
 

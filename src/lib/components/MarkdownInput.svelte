@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { tick, type Snippet } from 'svelte';
-	import MarkdownLine from './MarkdownLine.svelte';
-	import { defaultParser, type Parser, type Block, type InlineToken } from '../parser';
+	import type { EventHandler } from 'svelte/elements';
+	import { tick, type ComponentProps } from 'svelte';
+	import { defaultParser, type Parser } from '../parser';
 	import { serializeEditor } from '../dom/serialize';
 	import {
 		captureSelection,
@@ -9,7 +9,9 @@
 		makeCollapsedSelection,
 		type RawSelection,
 	} from '../cursor';
-	import type { EventHandler } from 'svelte/elements';
+	import MarkdownRenderer from './MarkdownRenderer.svelte';
+
+	type RendererProps = ComponentProps<typeof MarkdownRenderer>;
 
 	// ---------------------------------------------------------------------------
 	// Props
@@ -27,7 +29,6 @@
 		disabled = false,
 		readonly = false,
 		spellcheck = false,
-		lineTag = 'div',
 		lineClass = '',
 		tokenSnippet,
 		opaqueSnippet,
@@ -44,10 +45,9 @@
 		disabled: boolean;
 		readonly: boolean;
 		spellcheck: boolean;
-		lineTag: string;
 		lineClass: string;
-		tokenSnippet: Snippet<[InlineToken]>;
-		opaqueSnippet: Snippet<[Block]>;
+		tokenSnippet: RendererProps['tokenSnippet'];
+		opaqueSnippet: RendererProps['opaqueSnippet'];
 		debug: boolean;
 	}> = $props();
 
@@ -110,7 +110,7 @@
 	 * changes to avoid fighting with the user's in-progress editing.
 	 */
 	$effect(() => {
-		if (!isFocused && value !== rawValue) {
+		if (!isFocused && value != rawValue) {
 			rawValue = value ?? '';
 		}
 	});
@@ -173,9 +173,9 @@
 		let end = Math.max(anchorAbs, focusAbs);
 
 		// If selection is collapsed and a delete direction is requested, expand
-		if (start === end) {
-			if (deleteDir === 'backward' && start > 0) start -= 1;
-			else if (deleteDir === 'forward' && end < rawValue.length) end += 1;
+		if (start == end) {
+			if (deleteDir == 'backward' && start > 0) start -= 1;
+			else if (deleteDir == 'forward' && end < rawValue.length) end += 1;
 		}
 
 		rawValue = rawValue.slice(0, start) + insertText + rawValue.slice(end);
@@ -233,7 +233,7 @@
 		switch (e.inputType) {
 			// ── Character insertion ────────────────────────────────────────────────
 			case 'insertText': {
-				if (e.data === null || e.data === undefined) break;
+				if (e.data == null || e.data == undefined) break;
 				e.preventDefault();
 				applyEditAndRestoreCursor(savedCursor, e.data);
 				break;
@@ -282,13 +282,13 @@
 	 * no longer matches our model. We serialise the DOM back to a raw string,
 	 * update the model, and let Svelte re-render to get back in sync.
 	 */
-	async function handleInput() {
+	const handleInput = async () => {
 		if (disabled || readonly) return;
 		if (!editorEl) return;
 		if (isComposing) return; // compositionend handles this
 
 		const newRaw = serializeEditor(editorEl, blocks, tokensByLine, contentStarts);
-		if (newRaw === rawValue) return; // DOM in sync — nothing to do
+		if (newRaw == rawValue) return; // DOM in sync — nothing to do
 
 		// Update model
 		const cursor = savedCursor ?? captureSelection(editorEl, tokensByLine);
@@ -302,28 +302,28 @@
 			restoreSelection(editorEl, cursor, tokensByLine);
 		}
 		savedCursor = null;
-	}
+	};
 
 	/**
 	 * `compositionstart` — suppress model-first edits during IME composition.
 	 * The browser owns the DOM state while composing.
 	 */
-	function handleCompositionStart() {
+	const handleCompositionStart = () => {
 		isComposing = true;
 		// Capture cursor before composition starts
 		if (editorEl) savedCursor = captureSelection(editorEl, tokensByLine);
-	}
+	};
 
 	/**
 	 * `compositionend` — composition is complete. Serialise the final composed
 	 * text from the DOM and drive the reactive cycle normally.
 	 */
-	async function handleCompositionEnd() {
+	const handleCompositionEnd = async () => {
 		isComposing = false;
 		if (!editorEl) return;
 
 		const newRaw = serializeEditor(editorEl, blocks, tokensByLine, contentStarts);
-		if (newRaw === rawValue) return;
+		if (newRaw == rawValue) return;
 
 		const cursor = savedCursor ?? captureSelection(editorEl, tokensByLine);
 		rawValue = newRaw;
@@ -335,16 +335,16 @@
 			restoreSelection(editorEl, cursor, tokensByLine);
 		}
 		savedCursor = null;
-	}
+	};
 
 	/**
 	 * `keydown` — intercepts keyboard shortcuts before they translate to input.
 	 * * @param {KeyboardEvent} e
 	 */
-	function handleKeyDown(e: KeyboardEvent) {
+	const handleKeyDown = (e: KeyboardEvent) => {
 		if (disabled || readonly || isComposing) return;
 
-		if (e.key === 'Enter') {
+		if (e.key == 'Enter') {
 			if (submitOnEnter && !e.shiftKey) {
 				// Enter = submit; Shift+Enter = newline
 				e.preventDefault();
@@ -358,16 +358,16 @@
 			// The browser will proceed to fire the `beforeinput` event
 			// with inputType 'insertParagraph' or 'insertLineBreak'.
 		}
-	}
+	};
 
-	function handleFocus() {
+	const handleFocus = () => {
 		isFocused = true;
-	}
+	};
 
-	function handleBlur() {
+	const handleBlur = () => {
 		isFocused = false;
 		onchange?.(rawValue);
-	}
+	};
 
 	/**
 	 * `paste` — strip HTML from clipboard to prevent rich-text paste.
@@ -376,12 +376,12 @@
 	 *
 	 * @param {ClipboardEvent} e
 	 */
-	function handlePaste(e: ClipboardEvent) {
+	const handlePaste = (e: ClipboardEvent) => {
 		if (disabled || readonly) return;
 		if (!editorEl) return;
 
 		const plainText = e.clipboardData?.getData('text/plain');
-		if (plainText === undefined || plainText === null) return;
+		if (plainText == undefined || plainText == null) return;
 
 		e.preventDefault();
 
@@ -390,7 +390,7 @@
 		if (!cursor) return;
 
 		applyEditAndRestoreCursor(cursor, plainText);
-	}
+	};
 </script>
 
 <!--@component
@@ -460,14 +460,5 @@
 	onblur={handleBlur}
 	onpaste={handlePaste}
 >
-	{#each blocks as block (block.lineIndex)}
-		<MarkdownLine
-			{block}
-			tokens={tokensByLine[block.lineIndex] ?? []}
-			{lineTag}
-			{lineClass}
-			{tokenSnippet}
-			{opaqueSnippet}
-		/>
-	{/each}
+	<MarkdownRenderer {blocks} {tokensByLine} {lineClass} {tokenSnippet} {opaqueSnippet} {debug} />
 </div>

@@ -41,6 +41,7 @@
 // ── Components ────────────────────────────────────────────────────────────────
 
 export { default as MarkdownInput } from './components/MarkdownInput.svelte';
+export { default as MarkdownRenderer } from './components/MarkdownRenderer.svelte';
 export { default as MarkdownLine } from './components/MarkdownLine.svelte';
 
 // ── Parser ────────────────────────────────────────────────────────────────────

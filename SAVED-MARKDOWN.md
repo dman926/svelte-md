@@ -8,3 +8,12 @@ I have a [link](https://svelte.dev), and an image ![picture of a cat](https://i.
 > That even go multiline
 > > and maybe even...
 > > > nested?
+
+- list item
+  - and nested
+    1. and even with numbers in it
+    2. and another
+ - and back to ul
+ - and another
+- and finish it off
+- `with a code snippet`

@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { MarkdownInput } from '$lib';
+	import { MarkdownRenderer } from '$lib';
 
 	let { data } = $props();
 </script>
 
 <h2>Renderer</h2>
 <div class="md-input">
-	<MarkdownInput value={data.content} placeholder="Type markdown…" readonly />
+	<MarkdownRenderer value={data.content} debug />
 </div>
 
 <h2>Raw</h2>
@@ -16,12 +16,14 @@
 	.md-input {
 		border: 1px solid black;
 		border-radius: 1em;
+		padding: 0.25rem 0.5rem;
 	}
 
 	pre {
 		white-space: pre;
 		overflow-x: auto;
 		min-height: 2.5em;
+		padding: 0.25rem 0.5rem;
 		border: 1px solid black;
 		border-radius: 1em;
 	}

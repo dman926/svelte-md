@@ -287,23 +287,38 @@ const parseBlocksWithConfig = (raw, cfg) => {
 		// 8. List items (unordered then ordered)
 		// -----------------------------------------------------------------------
 		if (cfg.listEnabled) {
+			const getDepth = (/** @type {number} */ indent) => {
+				if (blocks.length == 0) return 1;
+				const prevBlock = blocks[blocks.length - 1];
+				if (typeof prevBlock.meta.indent == 'number') {
+					const prevIndent = prevBlock.meta.indent;
+					const prevDepth = prevBlock.meta.depth ?? 1;
+					if (indent > prevIndent) return prevDepth + 1;
+					if (indent < prevIndent) return prevDepth - 1;
+					return prevDepth;
+				}
+				return 1
+			}
+
 			const ulMatch = line.match(UNORDERED_LIST_RE);
 			if (ulMatch) {
+				const indent = ulMatch[1].length;
 				blocks.push({
 					raw: line,
 					type: 'list_item',
 					lineIndex,
-					meta: { ordered: false, listMarker: ulMatch[2], indent: ulMatch[1].length },
+					meta: { ordered: false, listMarker: ulMatch[2], depth: getDepth(indent), indent },
 				});
 				continue;
 			}
 			const olMatch = line.match(ORDERED_LIST_RE);
 			if (olMatch) {
+				const indent = olMatch[1].length;
 				blocks.push({
 					raw: line,
 					type: 'list_item',
 					lineIndex,
-					meta: { ordered: true, listMarker: olMatch[2] + '.', indent: olMatch[1].length },
+					meta: { ordered: true, listMarker: olMatch[2] + '.', depth: getDepth(indent), indent },
 				});
 				continue;
 			}
