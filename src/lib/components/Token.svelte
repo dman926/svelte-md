@@ -1,3 +1,7 @@
+<script module lang="ts">
+	export type CustomNodesSnippet = Snippet<[{ node: CustomBlockNode | CustomInlineNode; children: Snippet }]>;
+</script>
+
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { AnyNode, CustomBlockNode, CustomInlineNode } from '$lib/parser';
@@ -8,7 +12,7 @@
 		customNodes = customPassthrough,
 	}: {
 		node: AnyNode;
-		customNodes?: Snippet<[{ node: CustomBlockNode | CustomInlineNode; children: Snippet }]>;
+		customNodes?: CustomNodesSnippet;
 	} = $props();
 </script>
 

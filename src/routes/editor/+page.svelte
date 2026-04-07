@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { MarkdownInput } from '$lib';
+	import { MarkdownEditor } from '$lib';
 	import { fade } from 'svelte/transition';
 
 	const { data } = $props();
@@ -13,7 +13,7 @@
 <form method="POST">
 	<div class="md-input">
 		<!-- TODO: does not accept a "name" prop nor has the capability to do so -->
-		<MarkdownInput
+		<MarkdownEditor
 			bind:value
 			oninput={() => {
 				if (!dirty) dirty = true;
