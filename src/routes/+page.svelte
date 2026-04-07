@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { MarkdownRenderer } from '$lib';
+	// import { MarkdownRenderer } from '$lib';
+	import MarkdownRenderer from '$lib/components/new/Renderer.svelte';
 
 	let { data } = $props();
 </script>

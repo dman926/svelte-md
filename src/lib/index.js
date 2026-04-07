@@ -1,21 +1,29 @@
 /**
- * svelte-md-input — public API
+ * @dman926/svelte-md — public API
  *
  * ## Quick start
  *
  * ```svelte
  * <script>
- *   import { MarkdownInput } from 'svelte-md-input';
+ *   import { MarkdownRenderer } from '@dman926/svelte-md';
+ * </script>
+ *
+ * <MarkdownRenderer value="Hello **world**" />
+ * ```
+ * 
+ * ```svelte
+ * <script>
+ *   import { MarkdownEditor } from '@dman926/svelte-md';
  *   let value = $state('Hello **world**');
  * </script>
  *
- * <MarkdownInput bind:value placeholder="Type markdown…" />
+ * <MarkdownEditor bind:value placeholder="Type markdown…" />
  * ```
  *
  * ## Custom parser
  *
  * ```js
- * import { createParser, MarkdownInput } from 'svelte-md-input';
+ * import { createParser, MarkdownEditor } from '@dman926/svelte-md';
  *
  * const parser = createParser({
  *   block:  { blockquote: false, custom: [calloutRule] },
@@ -26,7 +34,7 @@
  * ## Custom rendering
  *
  * ```svelte
- * <MarkdownInput bind:value>
+ * <MarkdownEditor bind:value>
  *   {#snippet tokenSnippet(token)}
  *     {#if token.type === 'mention'}
  *       <span class="mention" data-md-token={token.start}>@{token.content}</span>
@@ -34,15 +42,14 @@
  *       <!-- fall through to MarkdownLine for built-in types -->
  *     {/if}
  *   {/snippet}
- * </MarkdownInput>
+ * </MarkdownEditor>
  * ```
  */
 
 // ── Components ────────────────────────────────────────────────────────────────
 
-export { default as MarkdownInput } from './components/MarkdownInput.svelte';
-export { default as MarkdownRenderer } from './components/MarkdownRenderer.svelte';
-export { default as MarkdownLine } from './components/MarkdownLine.svelte';
+export { default as MarkdownEditor } from './components/Editor.svelte';
+export { default as MarkdownRenderer } from './components/Renderer.svelte';
 
 // ── Parser ────────────────────────────────────────────────────────────────────
 
@@ -52,24 +59,4 @@ export { createInlineParser } from './parser/inline.js';
 
 // ── Cursor ────────────────────────────────────────────────────────────────────
 
-export {
-	captureSelection,
-	restoreSelection,
-	resolvePointToRange,
-	getTokenPrefixLen,
-	rawColToDomOffset,
-	domOffsetToRawCol,
-	findTokenAtRawCol,
-	findTokenByStart,
-	makeCollapsedSelection,
-	makeSelection,
-	pointsEqual,
-	clampPoint,
-	LINE_ATTR,
-	TOKEN_ATTR,
-} from './cursor/index.js';
-
 // ── DOM utilities ─────────────────────────────────────────────────────────────
-
-export { serializeLine, serializeEditor, buildContentStarts } from './dom/serialize.js';
-export { patchLine, patchEditor, createTokenElement } from './dom/patcher.js';

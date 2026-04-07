@@ -1,386 +1,622 @@
 /**
- * Block-level parser for the markdown editor.
+ * Block-level parser — Phase 1 of the parse pipeline.
  *
- * Splits a raw markdown string into an array of `Block` objects — one per
- * source line. Each Block carries its type (heading, code fence, list item,
- * etc.) and any type-specific metadata needed for rendering and cursor mapping.
+ * Implements the CommonMark open-block-stack algorithm:
  *
- * ## Usage — default parser (quick start)
+ *   For each source line:
+ *     Phase 1 — try to continue each open block (innermost first).
+ *               Lazy continuation: a bare non-interrupting line can extend
+ *               an open paragraph without repeating container markers.
+ *     Phase 2 — close any blocks that couldn't continue.
+ *     Phase 3 — try to open new blocks with the remaining content.
  *
- * ```js
- * import { parseBlocks, getBlockContentStart } from './block.js';
- * const blocks = parseBlocks('# Hello\n\nWorld');
- * ```
+ * Code fence open/body/close is handled via `result.close` on the fence
+ * rule's tryContinue, which tells the loop the closing fence was consumed
+ * and Phase 3 must not re-examine the line.
  *
- * ## Usage — custom parser via factory
+ * List items are wrapped in an implicit List container node by `wrapInList`.
  *
- * ```js
- * import { createBlockParser } from './block.js';
- * const { parseBlocks } = createBlockParser({
- *   codeFence: { chars: ['`'] },  // backtick-only fences
- *   blockquote: false,
- *   custom: [calloutRule],
- * });
- * ```
+ * ## Plugin system
  *
- * ## Design notes
- * - Every line maps to exactly one Block.
- * - Setext-style headings are not supported; ATX (`#`) only.
- * - The only cross-line state is the code fence open/close pair.
- * - `createBlockParser` compiles options once
+ * Block rules implement `BlockRule` (see types.ts) and are merged with the
+ * built-ins by ascending `priority`. Built-in rules are named exports so
+ * library consumers can reference, wrap, or replace them.
+ *
+ * Priority reference:
+ *   10  thematic_break
+ *   20  heading
+ *   30  code_block
+ *   40  blockquote
+ *   50  list_item
+ *  999  paragraph
  */
 
+import { isParentBlock } from './utils.js';
+
 /**
- * @import { Block, BlockMeta, BlockParserOptions, CustomBlockRule, BlockParseContext } from './types';
+ * @import {
+ *   BlockNode, InlineNode, Document, Blockquote, List,
+ *   ListItem, Heading, Paragraph, CodeBlock, ThematicBreak,
+ *   BlockRule, BlockRuleContext, BlockParserOptions,
+ *   InlineRange, SourceRange, Position,
+ * } from './types';
  */
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Regexes
 // ---------------------------------------------------------------------------
 
-/**
- * Escape a string for safe use inside a RegExp character class or alternation.
- * @param {string} s
- * @returns {string}
- */
-const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/**
- * Build the block-level regex pair for fence delimiters from an array of
- * single characters (e.g. `['`', '~']`).
- *
- * Open fence: `^(<chars>{3,})(.*)`
- * Close fence: `^(<chars>{3,})\s*$`
- *
- * @param {string[]} chars
- * @returns {{ open: RegExp, close: RegExp }}
- */
-const buildFenceRegexes = (chars) => {
-	const alts = chars.map((c) => `${escapeRegex(c)}{3,}`).join('|');
-	return {
-		open: new RegExp(`^(${alts})(.*)`),
-		close: new RegExp(`^(${alts})\\s*$`),
-	};
-};
-
-// Default fence regexes (used by the default parser instance)
-const DEFAULT_FENCE = buildFenceRegexes(['`', '~']);
-
-/** Matches 1–6 `#` followed by a space or end of line. */
-const HEADING_RE = /^(#{1,6})(?:\s|$)/;
-
-/** Matches a blockquote prefix `>` + optional space. */
-const BLOCKQUOTE_RE = /^>\s?/;
-
-/**
- * HR: 3+ of the same character (`-`, `*`, `_`) with optional spaces between,
- * preceded by up to 3 spaces.
- */
-const HR_RE = /^[ \t]{0,3}([-*_])(\s*\1){2,}\s*$/;
-
-/** Unordered list: optional indent, then `-`, `*`, or `+`, then a space. */
-const UNORDERED_LIST_RE = /^(\s*)([-*+])\s+/;
-
-/** Ordered list: optional indent, digits, `.` or `)`, then a space. */
-const ORDERED_LIST_RE = /^(\s*)(\d+)[.)]\s+/;
-
-/** Blank or whitespace-only line. */
 const BLANK_RE = /^\s*$/;
-
-/**
- * @param {string} line
- * @returns {{ depth: number, contentStart: number }}
- */
-const parseBlockquoteDepth = (line) => {
-	let i = 0;
-	let depth = 0;
-	while (i < line.length && line[i] == '>') {
-		depth++;
-		i++; // consume `>`
-		if (line[i] == ' ') i += line.substring(i).match(/^( {1,4})/)[0].length // consume up to 4 spaces
-		else if (line[1] == '\t') i++; // Consume tab
-	}
-	return { depth, contentStart: i };
-}
+const HEADING_RE = /^(#{1,6})(?:[ \t]|$)(.*)/;
+const THEMATIC_RE = /^[ \t]{0,3}([-*_])(?:\s*\1){2,}\s*$/;
+const BLOCKQUOTE_RE = /^[ \t]{0,3}>/;
+const UL_RE = /^([ \t]*)([-*+])(?:[ \t])(.*)/;
+const OL_RE = /^([ \t]*)(\d{1,9})([.)]) +(.*)/;
+const FENCE_OPEN_RE = /^([ \t]{0,3})((`{3,})|(~{3,}))([ \t]*)(.*)/;
+const FENCE_CLOSE_RE = /^[ \t]{0,3}(`{3,}|~{3,})[ \t]*$/;
 
 // ---------------------------------------------------------------------------
-// Compiled config
+// Position / range helpers
 // ---------------------------------------------------------------------------
 
-/**
- * @typedef {{
- *   headingEnabled:    boolean,
- *   codeFenceEnabled:  boolean,
- *   fenceOpen:         RegExp,
- *   fenceClose:        RegExp,
- *   blockquoteEnabled: boolean,
- *   listEnabled:       boolean,
- *   hrEnabled:         boolean,
- *   customRules:       CustomBlockRule[],
- * }} CompiledBlockConfig
- */
+/** @param {number} line @param {number} offset @returns {Position} */
+const mkPos = (line, offset) => ({ line, offset });
 
 /**
- * Compile a `BlockParserOptions` object into the internal config shape.
- * Called once per `createBlockParser` call.
- *
- * @param {BlockParserOptions} [options]
- * @returns {CompiledBlockConfig}
+ * @param {number} sl @param {number} so @param {number} el @param {number} eo
+ * @returns {SourceRange}
  */
-const compileBlockConfig = (options = {}) => {
-	const fenceOpts = options.codeFence;
-	const codeFenceEnabled = fenceOpts != false;
+const mkRange = (sl, so, el, eo) => ({ start: mkPos(sl, so), end: mkPos(el, eo) });
 
-	let fenceOpen = DEFAULT_FENCE.open;
-	let fenceClose = DEFAULT_FENCE.close;
+// ---------------------------------------------------------------------------
+// Built-in block rules
+// ---------------------------------------------------------------------------
 
-	if (codeFenceEnabled && typeof fenceOpts == 'object' && fenceOpts != null) {
-		const chars = fenceOpts.chars;
-		if (Array.isArray(chars) && chars.length > 0) {
-			const built = buildFenceRegexes(chars);
-			fenceOpen = built.open;
-			fenceClose = built.close;
-		}
-	}
+// ── Thematic break ──────────────────────────────────────────────────────────
 
-	return {
-		headingEnabled: options.heading != false,
-		codeFenceEnabled,
-		fenceOpen,
-		fenceClose,
-		blockquoteEnabled: options.blockquote != false,
-		listEnabled: options.list != false,
-		hrEnabled: options.hr != false,
-		customRules: options.custom ?? [],
-	};
+/** @type {BlockRule} */
+export const thematicBreakRule = {
+	name: 'thematic_break',
+	priority: 10,
+	isContainer: false,
+
+	tryStart(line, ctx) {
+		if (!THEMATIC_RE.test(line)) return null;
+		/** @type {ThematicBreak} */
+		const node = {
+			type: 'thematic_break',
+			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+		};
+		return { node };
+	},
+
+	tryContinue() {
+		return null;
+	},
 };
 
-// ---------------------------------------------------------------------------
-// Core parse function (takes a compiled config)
-// ---------------------------------------------------------------------------
+// ── ATX heading ─────────────────────────────────────────────────────────────
 
-/**
- * Normalise the return value of a `CustomBlockRule.test` call into a
- * `BlockMeta | null`. Returns `null` when the rule did not match.
- *
- * @param {BlockMeta | boolean | null | undefined} result
- * @returns {BlockMeta | null}
- */
-const resolveCustomMeta = (result) => {
-	if (!result) return null; // false, null, undefined
-	if (typeof result == 'object') return result; // BlockMeta object
-	return {}; // true or other truthy
+/** @type {BlockRule} */
+export const headingRule = {
+	name: 'heading',
+	priority: 20,
+	isContainer: false,
+
+	tryStart(line, ctx) {
+		const m = line.match(HEADING_RE);
+		if (!m) return null;
+		const level = m[1].length;
+		// Strip optional closing `#` sequence (ATX closing sequence).
+		const text = m[2]
+			.replace(/\s+#+\s*$/, '')
+			.replace(/^#+\s*$/, '')
+			.trim();
+		/** @type {Heading & { _raw: string }} */
+		const node = {
+			type: 'heading',
+			level,
+			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+			children: [],
+			_raw: text,
+		};
+		return { node };
+	},
+
+	tryContinue() {
+		return null;
+	},
+	// _raw is cleaned up by the inline pass after tokenization.
 };
 
-/**
- * Internal implementation of block parsing. Accepts a pre-compiled config
- * so callers pay the compilation cost only once.
- *
- * @param {string}             raw
- * @param {CompiledBlockConfig} cfg
- * @returns {Block[]}
- */
-const parseBlocksWithConfig = (raw, cfg) => {
-	const lines = raw.split('\n');
-	/** @type {Block[]} */
-	const blocks = [];
+// ── Fenced code block ────────────────────────────────────────────────────────
 
-	// Code fence state — the only cross-line state we track.
-	let inCodeFence = false;
-	let fenceMarker = '';
-	let fenceLang = '';
+/** @type {BlockRule} */
+export const codeBlockRule = {
+	name: 'code_block',
+	priority: 30,
+	isContainer: false,
 
-	for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-		const line = lines[lineIndex];
+	tryStart(line, ctx) {
+		const m = line.match(FENCE_OPEN_RE);
+		if (!m) return null;
+		const fenceStr = m[2]; // full fence string e.g. "```"
+		const fenceChar = m[3] ? '`' : '~';
+		const lang = m[6].trim();
+		if (fenceChar === '`' && lang.includes('`')) return null;
+		/** @type {CodeBlock & { _fenceLen: number }} */
+		const node = {
+			type: 'code_block',
+			lang,
+			fenceChar,
+			value: '',
+			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+			_fenceLen: fenceStr.length,
+		};
+		return { node };
+	},
 
-		// -----------------------------------------------------------------------
-		// 1. Code fence body / close (highest priority — always active when open)
-		// -----------------------------------------------------------------------
-		if (inCodeFence) {
-			const closeMatch = line.match(cfg.fenceClose);
-			if (
-				closeMatch &&
-				closeMatch[1][0] == fenceMarker[0] && // same fence character
-				closeMatch[1].length >= fenceMarker.length // at least as long
-			) {
-				blocks.push({ raw: line, type: 'code_fence_close', meta: { lang: fenceLang }, lineIndex });
-				inCodeFence = false;
-				fenceMarker = '';
-				fenceLang = '';
-			} else {
-				blocks.push({ raw: line, type: 'code_fence_body', meta: { lang: fenceLang }, lineIndex });
+	tryContinue(line, node, ctx) {
+		const n = /** @type {CodeBlock & { _fenceLen: number }} */ (node);
+		const closeMatch = line.match(FENCE_CLOSE_RE);
+		if (closeMatch) {
+			const closer = closeMatch[1].trimStart();
+			if (closer[0] === n.fenceChar && closer.length >= n._fenceLen) {
+				// Closing fence found — consume and signal close.
+				n.range = { ...n.range, end: mkPos(ctx.lineIndex, ctx.lineOffset + line.length) };
+				return { remainder: '', remainderOffset: ctx.lineOffset, close: true };
 			}
-			continue;
 		}
+		n.value += (n.value ? '\n' : '') + line;
+		n.range = { ...n.range, end: mkPos(ctx.lineIndex, ctx.lineOffset + line.length) };
+		return { remainder: line, remainderOffset: ctx.lineOffset };
+	},
 
-		// -----------------------------------------------------------------------
-		// 2. Blank line (always recognised — cannot be disabled)
-		// -----------------------------------------------------------------------
+	finalize(node) {
+		delete (/** @type {any} */ (node)._fenceLen);
+	},
+};
+
+// ── Blockquote ───────────────────────────────────────────────────────────────
+
+/** @type {BlockRule} */
+export const blockquoteRule = {
+	name: 'blockquote',
+	priority: 40,
+	isContainer: true,
+
+	tryStart(line, ctx) {
+		if (!BLOCKQUOTE_RE.test(line)) return null;
+		const stripped = line.replace(/^[ \t]{0,3}>[ \t]?/, '');
+		const consumed = line.length - stripped.length;
+		/** @type {Blockquote} */
+		const node = {
+			type: 'blockquote',
+			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+			children: [],
+		};
+		return { node, remainder: stripped, remainderOffset: ctx.lineOffset + consumed };
+	},
+
+	tryContinue(line, node, ctx) {
+		if (!BLOCKQUOTE_RE.test(line)) return null;
+		const stripped = line.replace(/^[ \t]{0,3}>[ \t]?/, '');
+		const consumed = line.length - stripped.length;
+		node.range = { ...node.range, end: mkPos(ctx.lineIndex, ctx.lineOffset + line.length) };
+		return { remainder: stripped, remainderOffset: ctx.lineOffset + consumed };
+	},
+};
+
+// ── List item ────────────────────────────────────────────────────────────────
+
+/** @type {BlockRule} */
+export const listItemRule = {
+	name: 'list_item',
+	priority: 50,
+	isContainer: true,
+
+	tryStart(line, ctx) {
+		const ul = line.match(UL_RE);
+		// ol assumed to be valid if ul is not
+		const ol = /** @type {typeof ul extends RegExpMatchArray ? null : RegExpMatchArray} */ (
+			line.match(OL_RE)
+		);
+		if (!ul && !ol) return null;
+		const marker = ul ? ul[2] : `${ol[2]}${ol[3]}`;
+		const indent = ul ? ul[1].length : ol[1].length;
+		const remainder = ul ? ul[3] : ol[4];
+		const contentIndent = indent + marker.length + 1;
+		/** @type {ListItem & { _indent: number, _contentIndent: number }} */
+		const node = {
+			type: 'list_item',
+			marker,
+			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+			children: [],
+			_indent: indent,
+			_contentIndent: contentIndent,
+		};
+		return { node, remainder, remainderOffset: ctx.lineOffset + contentIndent };
+	},
+
+	tryContinue(line, node, ctx) {
+		const item = /** @type {ListItem & { _contentIndent: number, _hadBlank?: boolean }} */ (node);
 		if (BLANK_RE.test(line)) {
-			blocks.push({ raw: line, type: 'blank', meta: {}, lineIndex });
-			continue;
+			item._hadBlank = true;
+			return { remainder: '', remainderOffset: ctx.lineOffset };
 		}
-
-		// -----------------------------------------------------------------------
-		// 3. Custom rules — tested before all built-in rules
-		// -----------------------------------------------------------------------
-		if (cfg.customRules.length > 0) {
-			/** @type {BlockParseContext} */
-			const ctx = { inCodeFence, fenceMarker, fenceLang, lineIndex };
-			let claimed = false;
-
-			for (const rule of cfg.customRules) {
-				const result = rule.test(line, ctx);
-				const meta = resolveCustomMeta(result);
-				if (meta != null) {
-					blocks.push({ raw: line, type: rule.type, meta, lineIndex });
-					claimed = true;
-					break;
-				}
-			}
-			if (claimed) continue;
+		const leadingSpaces = (line.match(/^([ \t]*)/)?.[1] ?? '').length;
+		if (leadingSpaces >= item._contentIndent) {
+			const remainder = line.slice(item._contentIndent);
+			item.range = { ...item.range, end: mkPos(ctx.lineIndex, ctx.lineOffset + line.length) };
+			return { remainder, remainderOffset: ctx.lineOffset + item._contentIndent };
 		}
+		return null;
+	},
 
-		// -----------------------------------------------------------------------
-		// 4. Fenced code block — opening fence
-		// -----------------------------------------------------------------------
-		if (cfg.codeFenceEnabled) {
-			const fenceMatch = line.match(cfg.fenceOpen);
-			if (fenceMatch) {
-				fenceMarker = fenceMatch[1];
-				fenceLang = fenceMatch[2].trim();
-				inCodeFence = true;
-				blocks.push({ raw: line, type: 'code_fence_open', meta: { lang: fenceLang }, lineIndex });
-				continue;
-			}
-		}
+	finalize(node) {
+		const n = /** @type {any} */ (node);
+		delete n._indent;
+		delete n._contentIndent;
+		// _hadBlank is cleaned up by the List rule's finalize.
+	},
+};
 
-		// -----------------------------------------------------------------------
-		// 5. ATX Heading
-		// -----------------------------------------------------------------------
-		if (cfg.headingEnabled) {
-			const m = line.match(HEADING_RE);
-			if (m) {
-				blocks.push({ raw: line, type: 'heading', meta: { level: m[1].length }, lineIndex });
-				continue;
-			}
-		}
+// ── Paragraph ────────────────────────────────────────────────────────────────
 
-		// -----------------------------------------------------------------------
-		// 6. Thematic break — checked before unordered list because `- - -` is HR
-		// -----------------------------------------------------------------------
-		if (cfg.hrEnabled && HR_RE.test(line)) {
-			blocks.push({ raw: line, type: 'hr', meta: {}, lineIndex });
-			continue;
-		}
+/** @type {BlockRule} */
+export const paragraphRule = {
+	name: 'paragraph',
+	priority: 999,
+	isContainer: false,
 
-		// -----------------------------------------------------------------------
-		// 7. Blockquote
-		// -----------------------------------------------------------------------
-		if (cfg.blockquoteEnabled && BLOCKQUOTE_RE.test(line)) {
-			const { depth } = parseBlockquoteDepth(line);
-			blocks.push({ raw: line, type: 'blockquote', meta: { depth }, lineIndex });
-			continue;
-		}
+	tryStart(line, ctx) {
+		if (BLANK_RE.test(line)) return null;
+		/** @type {Paragraph} */
+		const node = {
+			type: 'paragraph',
+			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+			children: [],
+			rawLines: [line],
+		};
+		return { node };
+	},
 
-		// -----------------------------------------------------------------------
-		// 8. List items (unordered then ordered)
-		// -----------------------------------------------------------------------
-		if (cfg.listEnabled) {
-			const getDepth = (/** @type {number} */ indent) => {
-				if (blocks.length == 0) return 1;
-				const prevBlock = blocks[blocks.length - 1];
-				if (typeof prevBlock.meta.indent == 'number') {
-					const prevIndent = prevBlock.meta.indent;
-					const prevDepth = prevBlock.meta.depth ?? 1;
-					if (indent > prevIndent) return prevDepth + 1;
-					if (indent < prevIndent) return prevDepth - 1;
-					return prevDepth;
-				}
-				return 1
-			}
-
-			const ulMatch = line.match(UNORDERED_LIST_RE);
-			if (ulMatch) {
-				const indent = ulMatch[1].length;
-				blocks.push({
-					raw: line,
-					type: 'list_item',
-					lineIndex,
-					meta: { ordered: false, listMarker: ulMatch[2], depth: getDepth(indent), indent },
-				});
-				continue;
-			}
-			const olMatch = line.match(ORDERED_LIST_RE);
-			if (olMatch) {
-				const indent = olMatch[1].length;
-				blocks.push({
-					raw: line,
-					type: 'list_item',
-					lineIndex,
-					meta: { ordered: true, listMarker: olMatch[2] + '.', depth: getDepth(indent), indent },
-				});
-				continue;
-			}
-		}
-
-		// -----------------------------------------------------------------------
-		// 9. Paragraph — catch-all
-		// -----------------------------------------------------------------------
-		blocks.push({ raw: line, type: 'paragraph', meta: {}, lineIndex });
-	}
-
-	return blocks;
+	tryContinue(line, node, ctx) {
+		if (BLANK_RE.test(line)) return null;
+		if (THEMATIC_RE.test(line)) return null;
+		if (HEADING_RE.test(line)) return null;
+		if (UL_RE.test(line)) return null;
+		if (OL_RE.test(line)) return null;
+		// Fenced code open also interrupts a paragraph.
+		if (FENCE_OPEN_RE.test(line)) return null;
+		const p = /** @type {Paragraph} */ (node);
+		p.rawLines.push(line);
+		p.range = { ...p.range, end: mkPos(ctx.lineIndex, ctx.lineOffset + line.length) };
+		return { remainder: line, remainderOffset: ctx.lineOffset };
+	},
 };
 
 // ---------------------------------------------------------------------------
-// getBlockContentStart (takes compiled config for custom-rule support)
+// Compiled rule set
+// ---------------------------------------------------------------------------
+
+const BUILT_IN_RULES = [
+	thematicBreakRule,
+	headingRule,
+	codeBlockRule,
+	blockquoteRule,
+	listItemRule,
+	paragraphRule,
+];
+
+/**
+ * @param {BlockParserOptions} [options]
+ * @returns {BlockRule[]}
+ */
+const compileRules = (options = {}) => {
+	const disabled = new Set(options.disableRules ?? []);
+	const custom = options.rules ?? [];
+	return [...BUILT_IN_RULES.filter((r) => !disabled.has(r.name)), ...custom].sort(
+		(a, b) => (a.priority ?? 50) - (b.priority ?? 50),
+	);
+};
+
+// ---------------------------------------------------------------------------
+// List wrapper
 // ---------------------------------------------------------------------------
 
 /**
- * @param {Block}              block
- * @param {CompiledBlockConfig} cfg
- * @returns {number}
+ * Determine whether two list item markers are compatible (belong to the same list).
+ * @param {string} a @param {string} b @returns {boolean}
  */
-const getBlockContentStartWithConfig = (block, cfg) => {
-	switch (block.type) {
-		case 'paragraph':
-		case 'blank':
-			return 0;
+const markersCompatible = (a, b) => {
+	const aOrd = /\d/.test(a),
+		bOrd = /\d/.test(b);
+	if (aOrd !== bOrd) return false;
+	return aOrd ? a.slice(-1) === b.slice(-1) : a === b;
+};
 
-		case 'heading': {
-			const level = block.meta.level ?? 1;
-			const afterHashes = block.raw[level];
-			return afterHashes == ' ' || afterHashes == '\t' ? level + 1 : level;
-		}
+/**
+ * The virtual rule for a List node (no line marker; opens/closes implicitly).
+ * @returns {BlockRule}
+ */
+const makeListRule = () => ({
+	name: 'list',
+	isContainer: true,
+	tryStart: () => null,
+	// Pass the line through unchanged — List has no marker of its own.
+	tryContinue: (line, node, ctx) => {
+		// Blank lines between items are allowed.
+		if (BLANK_RE.test(line)) return { remainder: line, remainderOffset: ctx.lineOffset };
 
-		case 'blockquote':
-			return parseBlockquoteDepth(block.raw).contentStart;
+		const list = /** @type {List & { _lastContentIndent?: number }} */ (node);
 
-		case 'list_item': {
-			const ulMatch = block.raw.match(UNORDERED_LIST_RE);
-			if (ulMatch) return ulMatch[0].length;
-			const olMatch = block.raw.match(ORDERED_LIST_RE);
-			if (olMatch) return olMatch[0].length;
-			return 0;
-		}
-
-		case 'code_fence_open':
-		case 'code_fence_body':
-		case 'code_fence_close':
-		case 'hr':
-			return block.raw.length; // opaque — no inline content
-
-		default: {
-			// Look for a matching custom rule and use its contentStart if provided.
-			const rule = cfg.customRules.find((r) => r.type == block.type);
-			if (rule) {
-				if (rule.opaque) return block.raw.length;
-				if (typeof rule.contentStart == 'function') {
-					return rule.contentStart(block.raw, block.meta);
-				}
+		// A new compatible list item continues the list.
+		const ul = line.match(UL_RE);
+		const ol = /** @type {typeof ul extends RegExpMatchArray ? null : RegExpMatchArray} */ (line.match(OL_RE));
+		if (ul || ol) {
+			const marker = ul ? ul[2] : `${ol[2]}${ol[3]}`;
+			if (markersCompatible(list.children.at(-1)?.marker ?? '', marker)) {
+				return { remainder: line, remainderOffset: ctx.lineOffset };
 			}
-			return 0;
+		}
+
+		// A line indented enough to continue the last item's content.
+		if (typeof list._lastContentIndent === 'number') {
+			const leading = (line.match(/^([ \t]*)/)?.[1] ?? '').length;
+			if (leading >= list._lastContentIndent) {
+				return { remainder: line, remainderOffset: ctx.lineOffset };
+			}
+		}
+
+		// Nothing matched — the list should close.
+		return null;
+	},
+	finalize(node) {
+		const list = /** @type {List & { _lastContentIndent?: number }} */ (node);
+		list.tight = !list.children.some((item) => /** @type {any} */ (item)._hadBlank);
+		for (const item of list.children) delete (/** @type {any} */ (item)._hadBlank);
+		delete list._lastContentIndent;
+	},
+});
+
+/**
+ * Wrap a new ListItem in the appropriate List node.
+ * Appends to an existing compatible List at the top of the stack, or creates a new one.
+ *
+ * @param {StackEntry[]}    stack
+ * @param {ListItem}        itemNode
+ * @param {BlockRuleContext} ctx
+ */
+const wrapInList = (stack, itemNode, ctx) => {
+	const parentEntry = stack[stack.length - 1];
+	const parentNode = parentEntry.node;
+
+	if (
+		parentNode.type === 'list' &&
+		markersCompatible(
+			/** @type {List} */ (parentNode).children.at(-1)?.marker ?? '',
+			itemNode.marker,
+		)
+	) {
+		// Compatible list already open — just append the item.
+		const list = /** @type {List} */ (parentNode);
+		list.children.push(itemNode);
+		list.range = { ...list.range, end: itemNode.range.end };
+		return;
+	}
+
+	// Start a new List.
+	const isOrdered = /\d/.test(itemNode.marker);
+	/** @type {List} */
+	const listNode = {
+		type: 'list',
+		ordered: isOrdered,
+		start: isOrdered ? parseInt(itemNode.marker, 10) : 1,
+		tight: true,
+		range: { ...itemNode.range },
+		children: [itemNode],
+	};
+	// Attach to current innermost container.
+	if ('children' in parentNode && Array.isArray(parentNode.children)) {
+		/** @type {any} */ (parentNode).children.push(listNode);
+	}
+	stack.push(entry(listNode, makeListRule(), ctx.lineIndex, ctx.lineOffset));
+};
+
+// ---------------------------------------------------------------------------
+// Open-block stack entry type
+// ---------------------------------------------------------------------------
+
+/**
+ * @typedef {{ node: BlockNode, rule: BlockRule, startLine: number, startOffset: number }} StackEntry
+ */
+
+/** @param {BlockNode} n @param {BlockRule} r @param {number} sl @param {number} so @returns {StackEntry} */
+const entry = (n, r, sl, so) => ({ node: n, rule: r, startLine: sl, startOffset: so });
+
+// ---------------------------------------------------------------------------
+// Core parse loop
+// ---------------------------------------------------------------------------
+
+/** Sentinel rule for the document root — always continues. @type {BlockRule} */
+const documentRule = {
+	name: 'document',
+	isContainer: true,
+	tryStart: () => null,
+	tryContinue: (line, _n, ctx) => ({ remainder: line, remainderOffset: ctx.lineOffset }),
+};
+
+/**
+ * @param {string}      source
+ * @param {BlockRule[]} rules
+ * @returns {Document}
+ */
+const parseBlockTree = (source, rules) => {
+	const lines = source.split('\n');
+	let offset = 0;
+
+	/** @type {Document} */
+	const root = { type: 'document', range: mkRange(0, 0, 0, 0), children: [] };
+
+	/** @type {StackEntry[]} */
+	const stack = [entry(root, documentRule, 0, 0)];
+
+	/** @param {BlockNode} node */
+	const appendChild = (node) => {
+		const top = stack[stack.length - 1].node;
+		if ('children' in top && Array.isArray(top.children))
+			/** @type {any} */ (top).children.push(node);
+	};
+
+	/** Close (pop+finalize) stack entries from `fromIndex` to top. @param {number} from */
+	const closeBlocks = (from) => {
+		while (stack.length > from) {
+			const e = stack.pop();
+			e?.rule.finalize?.(e.node);
+		}
+	};
+
+	lineLoop: for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+		const rawLine = lines[lineIndex];
+		let line = rawLine;
+		let lineOff = 0;
+		let lastContinued = 0;
+		let lazyContinued = false;
+
+		// ── Phase 1: try to continue each open block ──────────────────────────
+		for (let i = 1; i < stack.length; i++) {
+			const e = stack[i];
+			const ctx = { lines, lineIndex, lineOffset: offset + lineOff };
+
+			// Code block: handles close internally via result.close.
+			if (e.node.type === 'code_block') {
+				const result = e.rule.tryContinue(line, e.node, ctx);
+				if (result !== null) {
+					lastContinued = i;
+					if (result.close) {
+						closeBlocks(i); // pop the code_block and finalize it
+						offset += rawLine.length + 1;
+						continue lineLoop; // line fully consumed
+					}
+				}
+				break; // code_block is always the deepest leaf
+			}
+
+			const result = e.rule.tryContinue(line, e.node, ctx);
+			if (result !== null) {
+				line = result.remainder;
+				lineOff = result.remainderOffset - offset;
+				lastContinued = i;
+			} else {
+				// Lazy continuation: if innermost open leaf is a paragraph and the
+				// line cannot interrupt it, extend the paragraph without markers.
+				const leaf = stack[stack.length - 1].node;
+				if (
+					leaf.type === 'paragraph' &&
+					!BLANK_RE.test(rawLine) &&
+					!THEMATIC_RE.test(rawLine) &&
+					!HEADING_RE.test(rawLine) &&
+					!FENCE_OPEN_RE.test(rawLine) &&
+					!UL_RE.test(rawLine) &&
+					!OL_RE.test(rawLine)
+				) {
+					const p = /** @type {Paragraph} */ (leaf);
+					p.rawLines.push(rawLine);
+					p.range = { ...p.range, end: mkPos(lineIndex, offset + rawLine.length) };
+					lastContinued = stack.length - 1;
+					lazyContinued = true;
+				}
+				break;
+			}
+		}
+
+		// ── Phase 2: close uncontinued blocks ─────────────────────────────────
+		closeBlocks(lastContinued + 1);
+
+		// Lazy continuation consumed this line fully — no block-start detection.
+		if (lazyContinued) {
+			offset += rawLine.length + 1;
+			continue;
+		}
+
+		// Blank lines after continuation — update offset and skip Phase 3.
+		if (BLANK_RE.test(line)) {
+			offset += rawLine.length + 1;
+			continue;
+		}
+
+		// ── Phase 3: open new blocks ───────────────────────────────────────────
+		// Iterate until we open a leaf block (leaves don't nest further blocks).
+		let openedContainer = true;
+		while (openedContainer && !BLANK_RE.test(line)) {
+			openedContainer = false;
+			const ctx = { lines, lineIndex, lineOffset: offset + lineOff };
+
+			for (const rule of rules) {
+				const result = rule.tryStart(line, ctx);
+				if (result === null) continue;
+
+				const { node, remainder, remainderOffset } = result;
+
+				if (node.type === 'list_item') {
+					wrapInList(stack, /** @type {ListItem} */ (node), ctx);
+					stack.push(entry(node, rule, lineIndex, offset + lineOff));
+				} else if (rule.isContainer) {
+					appendChild(node);
+					stack.push(entry(node, rule, lineIndex, offset + lineOff));
+				} else {
+					appendChild(node);
+					// Single-line leaves (thematic_break, heading) don't go on the stack.
+					// Multi-line leaves (paragraph, code_block) do.
+					if (node.type !== 'thematic_break' && node.type !== 'heading') {
+						stack.push(entry(node, rule, lineIndex, offset + lineOff));
+					}
+				}
+
+				if (rule.isContainer && remainder !== undefined) {
+					line = remainder;
+					lineOff = (remainderOffset ?? 0) - offset;
+					openedContainer = true;
+				}
+				break; // one rule per iteration
+			}
+		}
+
+		offset += rawLine.length + 1;
+	}
+
+	// ── Close all remaining open blocks ───────────────────────────────────
+	closeBlocks(1);
+	root.range = mkRange(0, 0, Math.max(0, lines.length - 1), source.length);
+	return root;
+};
+
+// ---------------------------------------------------------------------------
+// Line number adjustment (for incremental updates)
+// ---------------------------------------------------------------------------
+
+/**
+ * Walk an entire subtree and shift every `range` by `deltaLines` lines and
+ * `deltaOffset` bytes. Used after an incremental edit to update the "after"
+ * blocks' source positions.
+ *
+ * @param {BlockNode} node
+ * @param {number}    deltaLines
+ * @param {number}    deltaOffset
+ */
+export const shiftRanges = (node, deltaLines, deltaOffset) => {
+	const shift = (/** @type {import('./types').SourceRange} */ r) => ({
+		start: mkPos(r.start.line + deltaLines, r.start.offset + deltaOffset),
+		end: mkPos(r.end.line + deltaLines, r.end.offset + deltaOffset),
+	});
+
+	node.range = shift(node.range);
+
+	if (isParentBlock(node)) {
+		for (const child of node.children) {
+			if (typeof child.range.start == 'number' && typeof child.range.end == 'number') continue;
+			shiftRanges(/** @type {BlockNode} */ (child), deltaLines, deltaOffset);
 		}
 	}
 };
@@ -390,131 +626,20 @@ const getBlockContentStartWithConfig = (block, cfg) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Create a block parser configured with the given options.
- *
- * Options are compiled once; the returned functions carry zero per-call
- * overhead from option resolution.
- *
- * ```js
- * const parser = createBlockParser({
- *   codeFence: { chars: ['`'] },   // backtick-only fences
- *   blockquote: false,              // disable blockquotes
- *   custom: [calloutRule],
- * });
- *
- * const blocks = parser.parseBlocks('# Hello\n> ignored\n```js\ncode\n```');
- * ```
- *
  * @param {BlockParserOptions} [options]
- * @returns {{
- *   parseBlocks:           (raw: string) => Block[],
- *   getBlockContentStart:  (block: Block) => number,
- *   getBlockInlineRaw:     (block: Block) => string,
- *   serializeBlocks:       (blocks: Block[]) => string,
- * }}
+ * @returns {{ parseBlocks: (source: string) => Document }}
  */
 export const createBlockParser = (options = {}) => {
-	const cfg = compileBlockConfig(options);
-
+	const rules = compileRules(options);
 	return {
-		/**
-		 * Parse a full markdown document string into Block objects.
-		 * @param {string} raw
-		 * @returns {Block[]}
-		 */
-		parseBlocks(raw) {
-			return parseBlocksWithConfig(raw, cfg);
-		},
-
-		/**
-		 * Returns the byte offset within `block.raw` where inline content begins.
-		 * Correctly handles custom block types via their `contentStart` function.
-		 * @param {Block} block
-		 * @returns {number}
-		 */
-		getBlockContentStart(block) {
-			return getBlockContentStartWithConfig(block, cfg);
-		},
-
-		/**
-		 * Returns the portion of `block.raw` after the block-level syntax prefix.
-		 * @param {Block} block
-		 * @returns {string}
-		 */
-		getBlockInlineRaw(block) {
-			return block.raw.slice(getBlockContentStartWithConfig(block, cfg));
-		},
-
-		/**
-		 * Serialize blocks back to a raw markdown string.
-		 * @param {Block[]} blocks
-		 * @returns {string}
-		 */
-		serializeBlocks(blocks) {
-			return blocks.map((b) => b.raw).join('\n');
+		/** @param {string} source @returns {Document} */
+		parseBlocks(source) {
+			return parseBlockTree(source, rules);
 		},
 	};
 };
 
-// ---------------------------------------------------------------------------
-// Default parser instance + standalone convenience exports
-// ---------------------------------------------------------------------------
+export const defaultBlockParser = createBlockParser();
 
-/** The default block parser (all built-in features enabled, no custom rules). */
-const defaultBlockParser = createBlockParser();
-
-/**
- * Parse a full markdown document string into an array of Block objects.
- * Uses the default parser (all features enabled).
- *
- * ```js
- * const blocks = parseBlocks('# Hello\n\nWorld');
- * // blocks[0] → { type: 'heading', meta: { level: 1 }, raw: '# Hello', lineIndex: 0 }
- * // blocks[1] → { type: 'blank',   meta: {},           raw: '',        lineIndex: 1 }
- * // blocks[2] → { type: 'paragraph', meta: {},         raw: 'World',   lineIndex: 2 }
- * ```
- *
- * @param {string} raw
- * @returns {Block[]}
- */
-export const parseBlocks = (raw) => defaultBlockParser.parseBlocks(raw);
-
-/**
- * Returns the byte offset within `block.raw` where inline content begins.
- * Uses the default parser — unknown `block.type` values return `0`.
- *
- * | Block type         | Example raw          | Content start |
- * |--------------------|----------------------|---------------|
- * | paragraph          | `Hello world`        | 0             |
- * | heading (level 2)  | `## My heading`      | 3             |
- * | blockquote         | `> Some text`        | 2             |
- * | list_item (ul)     | `- Item text`        | 2             |
- * | list_item (ol)     | `1. First`           | 3             |
- * | code_fence_open    | ` ```js `            | raw.length    |
- * | code_fence_body    | `const x = 1`        | raw.length    |
- * | code_fence_close   | ` ``` `              | raw.length    |
- * | hr                 | `---`                | raw.length    |
- * | blank              | `` (empty)           | 0             |
- *
- * @param {Block} block
- * @returns {number}
- */
-export const getBlockContentStart = (block) => defaultBlockParser.getBlockContentStart(block);
-
-/**
- * Returns the portion of `block.raw` that contains inline markdown content.
- * Returns an empty string for opaque blocks (code fences, HR).
- *
- * @param {Block} block
- * @returns {string}
- */
-export const getBlockInlineRaw = (block) => defaultBlockParser.getBlockInlineRaw(block);
-
-/**
- * Serialize an array of blocks back into a raw markdown string.
- * Each block's `raw` field is joined with newlines.
- *
- * @param {Block[]} blocks
- * @returns {string}
- */
-export const serializeBlocks = (blocks) => defaultBlockParser.serializeBlocks(blocks);
+/** @param {string} source @returns {Document} */
+export const parseBlocks = (source) => defaultBlockParser.parseBlocks(source);
