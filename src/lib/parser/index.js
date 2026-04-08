@@ -63,7 +63,7 @@ export { walk, walkInline, find, findBlockAt, findInlineAt, serialize } from './
  *     return { node: { type: 'callout', kind: m[1], range: ..., rawLines: [m[2]] } };
  *   },
  *   tryContinue(line, node) {
- *     if (line.trim() === ':::') return null;
+ *     if (line.trim() == ':::') return null;
  *     node.rawLines.push(line);
  *     return { remainder: line, remainderOffset: 0 };
  *   },
@@ -73,7 +73,7 @@ export { walk, walkInline, find, findBlockAt, findInlineAt, serialize } from './
  * const mentionRule = {
  *   name: 'mention',
  *   scan(raw, pos, end) {
- *     if (raw[pos] !== '@') return null;
+ *     if (raw[pos] != '@') return null;
  *     const m = raw.slice(pos).match(/^@([\w-]+)/);
  *     if (!m) return null;
  *     const endPos = pos + m[0].length;
@@ -135,7 +135,7 @@ export const createParser = (options = {}) => {
 			// This includes blocks that START before or AT the first changed line
 			// (a container might span both changed and unchanged lines).
 			let firstAffIdx = top.findIndex((b) => b.range.end.line >= startLine);
-			if (firstAffIdx === -1) {
+			if (firstAffIdx == -1) {
 				// All existing blocks end before the edit — re-parse only the new tail.
 				const reparseStart = top.length > 0 ? top[top.length - 1].range.end.line + 1 : 0;
 				const tailSource = newLines.slice(reparseStart).join('\n');
@@ -187,7 +187,7 @@ export const createParser = (options = {}) => {
 			const keepAfter = top.slice(lastAffIdx + 1);
 
 			// Shift after-blocks by deltaLines (their absolute positions changed).
-			if (deltaLines !== 0) {
+			if (deltaLines != 0) {
 				const afterOffset =
 					computeOffset(newLines, reparseToLine + 1) -
 					computeOffset(

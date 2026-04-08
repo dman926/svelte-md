@@ -66,13 +66,13 @@ export const walk = (root, visitor) => {
  */
 const walkNode = (node, parent, depth, visitor) => {
 	const descend = visitor(node, parent, depth);
-	if (descend === false) return;
+	if (descend == false) return;
 
 	// No casting needed! TS knows `node` is a ParentBlock here.
 	if (isParentBlock(node)) {
 		for (const child of node.children) {
 			// Ensure we are only walking BlockNodes, not InlineNodes
-			if (child.type !== 'text' && child.type !== 'bold' /* etc... or better, use a guard */) {
+			if (child.type != 'text' && child.type != 'bold' /* etc... or better, use a guard */) {
 				// @ts-expect-error - for dynamic ASTs, TS sometimes still worries about custom nodes
 				walkNode(child, node, depth + 1, visitor);
 			}
@@ -106,7 +106,7 @@ export const walkInline = (root, visitor) => {
  */
 const walkInlineNode = (node, parent, depth, visitor) => {
 	const descend = visitor(node, parent, depth);
-	if (descend === false) return;
+	if (descend == false) return;
 	if ('children' in node && Array.isArray(node.children)) {
 		for (const child of /** @type {any} */ (node).children) {
 			walkInlineNode(child, node, depth + 1, visitor);
@@ -312,13 +312,13 @@ const serializeListItem = (item, indent) => {
 	const marker = item.marker + ' ';
 	const childIndent = indent + ' '.repeat(marker.length);
 	const children = item.children.map((c, i) =>
-		i === 0 ? serializeBlock(c, '') : serializeBlock(c, childIndent),
+		i == 0 ? serializeBlock(c, '') : serializeBlock(c, childIndent),
 	);
 	const body = children.join('\n\n');
 	// Prefix the first line with the marker, continuation lines with childIndent.
 	const lines = body.split('\n');
 	return lines
-		.map((line, i) => (i === 0 ? `${indent}${marker}${line}` : `${childIndent}${line}`))
+		.map((line, i) => (i == 0 ? `${indent}${marker}${line}` : `${childIndent}${line}`))
 		.join('\n');
 };
 

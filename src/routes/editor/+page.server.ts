@@ -6,7 +6,7 @@ export const actions: Actions = {
 	default: async ({ request }) => {
 		const formData = await request.formData();
 		const content = formData.get('content');
-		if (content === null || typeof content != 'string') {
+		if (content == null || typeof content != 'string') {
 			return fail(400, { content, missing: true });
 		}
 		try {

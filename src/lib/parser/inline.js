@@ -79,13 +79,13 @@ const createChunkMapper = (chunks) => {
 const findEmphasisClose = (str, from, delimChar, len, maxEnd) => {
 	let i = from;
 	while (i < maxEnd) {
-		if (str[i] === delimChar) {
+		if (str[i] == delimChar) {
 			let run = 0;
-			while (i + run < maxEnd && str[i + run] === delimChar) run++;
-			if (run === len) {
-				if (delimChar === '_') {
+			while (i + run < maxEnd && str[i + run] == delimChar) run++;
+			if (run == len) {
+				if (delimChar == '_') {
 					const after = str[i + run];
-					if (after !== undefined && /\w/.test(after)) {
+					if (after != undefined && /\w/.test(after)) {
 						i += run;
 						continue;
 					}
@@ -110,10 +110,10 @@ const findEmphasisClose = (str, from, delimChar, len, maxEnd) => {
 const findBacktickClose = (str, from, len, maxEnd) => {
 	let i = from;
 	while (i < maxEnd) {
-		if (str[i] === '`') {
+		if (str[i] == '`') {
 			let run = 0;
-			while (i + run < maxEnd && str[i + run] === '`') run++;
-			if (run === len) return i;
+			while (i + run < maxEnd && str[i + run] == '`') run++;
+			if (run == len) return i;
 			i += run;
 		} else {
 			i++;
@@ -131,8 +131,8 @@ const findBacktickClose = (str, from, len, maxEnd) => {
 const findClosingBracket = (str, from, maxEnd) => {
 	let depth = 1;
 	for (let i = from; i < maxEnd; i++) {
-		if (str[i] === '[') depth++;
-		else if (str[i] === ']' && --depth === 0) return i;
+		if (str[i] == '[') depth++;
+		else if (str[i] == ']' && --depth == 0) return i;
 	}
 	return -1;
 };
@@ -146,8 +146,8 @@ const findClosingBracket = (str, from, maxEnd) => {
 const findClosingParen = (str, from, maxEnd) => {
 	let depth = 1;
 	for (let i = from; i < maxEnd; i++) {
-		if (str[i] === '(') depth++;
-		else if (str[i] === ')' && --depth === 0) return i;
+		if (str[i] == '(') depth++;
+		else if (str[i] == ')' && --depth == 0) return i;
 	}
 	return -1;
 };
@@ -213,7 +213,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 		// Custom rules
 		for (const rule of cfg.customRules) {
 			const result = rule.scan(raw, i, scanEnd, getRange);
-			if (result !== null) {
+			if (result != null) {
 				flushText();
 				const { _end, ...node } = result;
 				nodes.push(/** @type {InlineNode} */ (node));
@@ -223,8 +223,8 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 		}
 
 		// Soft line break
-		if (ch === '\n') {
-			if (cfg.softBreaks === 'break') {
+		if (ch == '\n') {
+			if (cfg.softBreaks == 'break') {
 				flushText();
 				nodes.push({ type: 'soft_break', range: getRange(i, i + 1), raw: ch });
 			} else {
@@ -238,7 +238,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 		}
 
 		// Backslash escape
-		if (cfg.escape && ch === '\\') {
+		if (cfg.escape && ch == '\\') {
 			const next = raw[i + 1];
 			if (next && /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/.test(next)) {
 				flushText();
@@ -249,15 +249,15 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 		}
 
 		// Inline code
-		if (cfg.code && ch === '`') {
+		if (cfg.code && ch == '`') {
 			let tickLen = 0;
-			while (i + tickLen < scanEnd && raw[i + tickLen] === '`') tickLen++;
+			while (i + tickLen < scanEnd && raw[i + tickLen] == '`') tickLen++;
 			const closeIdx = findBacktickClose(raw, i + tickLen, tickLen, scanEnd);
-			if (closeIdx !== -1) {
+			if (closeIdx != -1) {
 				flushText();
 				const rawValue = raw.slice(i + tickLen, closeIdx);
 				let value = rawValue
-				if (value.length > 2 && value[0] === ' ' && value[value.length - 1] === ' ')
+				if (value.length > 2 && value[0] == ' ' && value[value.length - 1] == ' ')
 					value = value.slice(1, -1);
 				nodes.push({ type: 'inline_code', value, range: getRange(i, closeIdx + tickLen), raw: rawValue });
 				i = closeIdx + tickLen;
@@ -273,7 +273,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 			const dLen = cfg.strikeD.length;
 			const innerStart = i + dLen;
 			const closeIdx = raw.indexOf(cfg.strikeD, innerStart);
-			if (closeIdx !== -1 && closeIdx < scanEnd) {
+			if (closeIdx != -1 && closeIdx < scanEnd) {
 				flushText();
 				nodes.push({
 					type: 'strike',
@@ -287,23 +287,23 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 		}
 
 		// Bold / Italic
-		if (ch === '*' || ch === '_') {
+		if (ch == '*' || ch == '_') {
 			const dc = ch;
-			if (dc === '_') {
+			if (dc == '_') {
 				const before = i > 0 ? raw[i - 1] : null;
-				if (before !== null && /\w/.test(before)) {
+				if (before != null && /\w/.test(before)) {
 					pushChar(ch);
 					i++;
 					continue;
 				}
 			}
 			let openCount = 0;
-			while (i + openCount < scanEnd && raw[i + openCount] === dc) openCount++;
+			while (i + openCount < scanEnd && raw[i + openCount] == dc) openCount++;
 			const excess = Math.max(0, openCount - 2);
 			const len = Math.min(openCount, 2);
-			const enabled = (len === 2 && cfg.bold) || (len === 1 && cfg.italic);
+			const enabled = (len == 2 && cfg.bold) || (len == 1 && cfg.italic);
 			const closeIdx = enabled ? findEmphasisClose(raw, i + openCount, dc, len, scanEnd) : -1;
-			if (closeIdx !== -1) {
+			if (closeIdx != -1) {
 				flushText();
 				const tokenStart = i + excess;
 				const innerStart = tokenStart + len;
@@ -315,7 +315,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 						raw: raw.slice(i, tokenStart)
 					});
 				nodes.push({
-					type: len === 2 ? 'bold' : 'italic',
+					type: len == 2 ? 'bold' : 'italic',
 					children: scan(raw, innerStart, closeIdx, cfg, getRange),
 					range: getRange(tokenStart, closeIdx + len),
 					raw: raw.slice(tokenStart, closeIdx + len)
@@ -329,13 +329,13 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 		}
 
 		// Image
-		if (cfg.image && ch === '!' && raw[i + 1] === '[') {
+		if (cfg.image && ch == '!' && raw[i + 1] == '[') {
 			const bOpen = i + 2;
 			const bClose = findClosingBracket(raw, bOpen, scanEnd);
-			if (bClose !== -1 && raw[bClose + 1] === '(') {
+			if (bClose != -1 && raw[bClose + 1] == '(') {
 				const pOpen = bClose + 2;
 				const pClose = findClosingParen(raw, pOpen, scanEnd);
-				if (pClose !== -1) {
+				if (pClose != -1) {
 					flushText();
 					nodes.push({
 						type: 'image',
@@ -351,13 +351,13 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 		}
 
 		// Link
-		if (cfg.link && ch === '[') {
+		if (cfg.link && ch == '[') {
 			const bOpen = i + 1;
 			const bClose = findClosingBracket(raw, bOpen, scanEnd);
-			if (bClose !== -1 && raw[bClose + 1] === '(') {
+			if (bClose != -1 && raw[bClose + 1] == '(') {
 				const pOpen = bClose + 2;
 				const pClose = findClosingParen(raw, pOpen, scanEnd);
-				if (pClose !== -1) {
+				if (pClose != -1) {
 					flushText();
 					nodes.push({
 						type: 'link',

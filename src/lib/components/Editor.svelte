@@ -74,9 +74,9 @@
 		let start = Math.min(cursor.anchor, cursor.focus);
 		let end = Math.max(cursor.anchor, cursor.focus);
 
-		if (start === end) {
-			if (deleteDir === 'backward' && start > 0) start -= 1;
-			else if (deleteDir === 'forward' && end < rawValue.length) end += 1;
+		if (start == end) {
+			if (deleteDir == 'backward' && start > 0) start -= 1;
+			else if (deleteDir == 'forward' && end < rawValue.length) end += 1;
 		}
 
 		const nextSource = rawValue.slice(0, start) + insertText + rawValue.slice(end);
@@ -162,7 +162,7 @@
 		// We re-parse fully if the DOM gets out of sync because incremental
 		// update requires precise EditRanges which browser-mutated DOM doesn't provide easily.
 		const newRaw = editorEl.innerText; // Simple serialization
-		if (newRaw === rawValue) return;
+		if (newRaw == rawValue) return;
 
 		const cursor = captureSelection(editorEl);
 		rawValue = newRaw;
@@ -201,7 +201,7 @@
 	const handleKeydown = (e: KeyboardEvent) => {
 		if (disabled || readonly || isComposing) return;
 
-		if (e.key === 'Enter') {
+		if (e.key == 'Enter') {
 			const isSubmit = (submitOnEnter && !e.shiftKey) || e.ctrlKey || e.metaKey;
 			if (isSubmit) {
 				e.preventDefault();

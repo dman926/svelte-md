@@ -142,7 +142,7 @@ export const codeBlockRule = {
 		const fenceStr = m[2]; // full fence string e.g. "```"
 		const fenceChar = m[3] ? '`' : '~';
 		const lang = m[6].trim();
-		if (fenceChar === '`' && lang.includes('`')) return null;
+		if (fenceChar == '`' && lang.includes('`')) return null;
 		/** @type {CodeBlock & { _fenceLen: number }} */
 		const node = {
 			type: 'code_block',
@@ -161,7 +161,7 @@ export const codeBlockRule = {
 		const closeMatch = line.match(FENCE_CLOSE_RE);
 		if (closeMatch) {
 			const closer = closeMatch[1].trimStart();
-			if (closer[0] === n.fenceChar && closer.length >= n._fenceLen) {
+			if (closer[0] == n.fenceChar && closer.length >= n._fenceLen) {
 				// Closing fence found — consume and signal close.
 				n.range = { ...n.range, end: mkPos(ctx.lineIndex, ctx.lineOffset + line.length) };
 				return { remainder: '', remainderOffset: ctx.lineOffset, close: true };
@@ -335,8 +335,8 @@ const compileRules = (options = {}) => {
 const markersCompatible = (a, b) => {
 	const aOrd = /\d/.test(a),
 		bOrd = /\d/.test(b);
-	if (aOrd !== bOrd) return false;
-	return aOrd ? a.slice(-1) === b.slice(-1) : a === b;
+	if (aOrd != bOrd) return false;
+	return aOrd ? a.slice(-1) == b.slice(-1) : a == b;
 };
 
 /**
@@ -367,7 +367,7 @@ const makeListRule = () => ({
 		}
 
 		// A line indented enough to continue the last item's content.
-		if (typeof list._lastContentIndent === 'number') {
+		if (typeof list._lastContentIndent == 'number') {
 			const leading = (line.match(/^([ \t]*)/)?.[1] ?? '').length;
 			if (leading >= list._lastContentIndent) {
 				return { remainder: line, remainderOffset: ctx.lineOffset };
@@ -398,7 +398,7 @@ const wrapInList = (stack, itemNode, ctx) => {
 	const parentNode = parentEntry.node;
 
 	if (
-		parentNode.type === 'list' &&
+		parentNode.type == 'list' &&
 		markersCompatible(
 			/** @type {List} */ (parentNode).children.at(-1)?.marker ?? '',
 			itemNode.marker,
@@ -496,9 +496,9 @@ const parseBlockTree = (source, rules) => {
 			const ctx = { lines, lineIndex, lineOffset: offset + lineOff };
 
 			// Code block: handles close internally via result.close.
-			if (e.node.type === 'code_block') {
+			if (e.node.type == 'code_block') {
 				const result = e.rule.tryContinue(line, e.node, ctx);
-				if (result !== null) {
+				if (result != null) {
 					lastContinued = i;
 					if (result.close) {
 						closeBlocks(i); // pop the code_block and finalize it
@@ -510,7 +510,7 @@ const parseBlockTree = (source, rules) => {
 			}
 
 			const result = e.rule.tryContinue(line, e.node, ctx);
-			if (result !== null) {
+			if (result != null) {
 				line = result.remainder;
 				lineOff = result.remainderOffset - offset;
 				lastContinued = i;
@@ -519,7 +519,7 @@ const parseBlockTree = (source, rules) => {
 				// line cannot interrupt it, extend the paragraph without markers.
 				const leaf = stack[stack.length - 1].node;
 				if (
-					leaf.type === 'paragraph' &&
+					leaf.type == 'paragraph' &&
 					!BLANK_RE.test(rawLine) &&
 					!THEMATIC_RE.test(rawLine) &&
 					!HEADING_RE.test(rawLine) &&
@@ -561,11 +561,11 @@ const parseBlockTree = (source, rules) => {
 
 			for (const rule of rules) {
 				const result = rule.tryStart(line, ctx);
-				if (result === null) continue;
+				if (result == null) continue;
 
 				const { node, remainder, remainderOffset } = result;
 
-				if (node.type === 'list_item') {
+				if (node.type == 'list_item') {
 					wrapInList(stack, /** @type {ListItem} */ (node), ctx);
 					stack.push(entry(node, rule, lineIndex, offset + lineOff));
 				} else if (rule.isContainer) {
@@ -575,12 +575,12 @@ const parseBlockTree = (source, rules) => {
 					appendChild(node);
 					// Single-line leaves (thematic_break, heading) don't go on the stack.
 					// Multi-line leaves (paragraph, code_block) do.
-					if (node.type !== 'thematic_break' && node.type !== 'heading') {
+					if (node.type != 'thematic_break' && node.type != 'heading') {
 						stack.push(entry(node, rule, lineIndex, offset + lineOff));
 					}
 				}
 
-				if (rule.isContainer && remainder !== undefined) {
+				if (rule.isContainer && remainder != undefined) {
 					line = remainder;
 					lineOff = (remainderOffset ?? 0) - offset;
 					openedContainer = true;
