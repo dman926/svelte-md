@@ -1,13 +1,18 @@
 <script lang="ts">
-	import { MarkdownRenderer } from '$lib';
+	import { defaultParser, MarkdownRenderer } from '$lib';
 
 	let { data } = $props();
+
+	const parsed = $derived(defaultParser.parse(data.content));
 </script>
 
 <h2>Renderer</h2>
 <div class="md-input">
-	<MarkdownRenderer value={data.content} debug />
+	<MarkdownRenderer {parsed} debug />
 </div>
+
+<h2>Parsed</h2>
+<pre>{JSON.stringify(parsed, null, 2)}</pre>
 
 <h2>Raw</h2>
 <pre>{data.content}</pre>

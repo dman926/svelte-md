@@ -1,5 +1,18 @@
 <script module lang="ts">
-	export type CustomNodesSnippet = Snippet<[{ node: CustomBlockNode | CustomInlineNode; children: Snippet }]>;
+	export type CustomNodesSnippet = Snippet<
+		[
+			{
+				node: CustomBlockNode | CustomInlineNode;
+				children: Snippet;
+				dataProps: {
+					'data-md-start-line': number;
+					'data-md-start-offset': number;
+					'data-md-end-line': number;
+					'data-md-end-offset': number;
+				};
+			},
+		]
+	>;
 </script>
 
 <script lang="ts">
@@ -14,6 +27,13 @@
 		node: AnyNode;
 		customNodes?: CustomNodesSnippet;
 	} = $props();
+
+	const dataProps = $derived({
+		'data-md-start-line': node.range.start.line,
+		'data-md-start-offset': node.range.start.offset,
+		'data-md-end-line': node.range.end.line,
+		'data-md-end-offset': node.range.end.offset,
+	});
 </script>
 
 {#snippet customPassthrough({
@@ -35,41 +55,45 @@
 {#if node.type == 'document'}
 	{@render children()}
 {:else if node.type == 'blockquote'}
-	<blockquote>{@render children()}</blockquote>
+	<blockquote {...dataProps}>{@render children()}</blockquote>
 {:else if node.type == 'list'}
-	<ul>{@render children()}</ul>
+	<ul {...dataProps}>{@render children()}</ul>
 {:else if node.type == 'list_item'}
-	<li>{@render children()}</li>
+	<li {...dataProps}>{@render children()}</li>
 {:else if node.type == 'heading'}
-	<svelte:element this={`h${node.level}`}>{@render children()}</svelte:element>
+	<svelte:element this={`h${node.level}`} {...dataProps}>{@render children()}</svelte:element>
 {:else if node.type == 'paragraph'}
-	<p>{@render children()}</p>
+	<p {...dataProps}>{@render children()}</p>
 {:else if node.type == 'code_block'}
 	<!--TODO: handle syntax highlighting  -->
-	<pre><code>{node.value}</code></pre>
+	<pre {...dataProps}><code>{node.value}</code></pre>
 {:else if node.type == 'thematic_break'}
-	<hr />
+	<hr {...dataProps} />
 
 	<!-- Inline Nodes -->
 {:else if node.type == 'text'}
-	{node.value}
+	<span {...dataProps}>{node.value}</span>
 {:else if node.type == 'soft_break'}
-	<br />
+	<br {...dataProps} />
 {:else if node.type == 'bold'}
-	<b>{@render children()}</b>
+	<b {...dataProps}>{@render children()}</b>
 {:else if node.type == 'italic'}
-	<i>{@render children()}</i>
+	<i {...dataProps}>{@render children()}</i>
 {:else if node.type == 'inline_code'}
-	<code>{node.value}</code>
+	<code {...dataProps}>{node.value}</code>
 {:else if node.type == 'strike'}
-	<s>{@render children()}</s>
+	<s {...dataProps}>{@render children()}</s>
 {:else if node.type == 'link'}
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-	<a href={node.href} target="_blank" rel="noopener noreferrer">{@render children()}</a>
+	<a href={node.href} target="_blank" rel="noopener noreferrer" {...dataProps}>
+		{@render children()}
+	</a>
 {:else if node.type == 'image'}
-	<img src={node.href} alt={node.alt} />
+	<img src={node.href} alt={node.alt} {...dataProps} />
 {:else if node.type == 'escape'}
-	<span>{@render children()}</span>
+	<span {...dataProps}>{@render children()}</span>
+
+	<!-- Custom Nodes -->
 {:else}
-	{@render customNodes({ node, children })}
+	{@render customNodes({ node, children, dataProps })}
 {/if}

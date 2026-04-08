@@ -254,6 +254,7 @@ const buildDoc = (children, sourceLength) => ({
 			offset: sourceLength,
 		},
 	},
+	raw: children.map(({ raw }) => raw).join('\n'),
 	children,
 });
 

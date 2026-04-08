@@ -24,14 +24,49 @@
 
 /**
  * @import {
- *   BlockNode, Document, Heading, Paragraph,
- *   InlineNode, InlineParserOptions,
+ *   BlockNode, Document, Heading, Paragraph, InlineNode,
+ *   InlineParserOptions, NodeRange, TextChunk, Position
  * } from './types';
  */
 
 // ---------------------------------------------------------------------------
 // Scan helpers (pure)
 // ---------------------------------------------------------------------------
+
+/** @param {TextChunk[]} chunks */
+const createChunkMapper = (chunks) => {
+	const raw = chunks.map((c) => c.text).join('\n');
+	/** @type {Array<{ start: number; end: number; chunk: TextChunk }>} */
+	const boundaries = [];
+	let current = 0;
+
+	for (const chunk of chunks) {
+		boundaries.push({ start: current, end: current + chunk.text.length, chunk });
+		current += chunk.text.length + 1; // +1 for the synthetic '\n'
+	}
+
+	/** @param {number} localOffset @returns {Position} */
+	const getPos = (localOffset) => {
+		for (const b of boundaries) {
+			// If inside this chunk's text
+			if (localOffset >= b.start && localOffset <= b.end) {
+				return { line: b.chunk.line, offset: b.chunk.offset + (localOffset - b.start) };
+			}
+		}
+		// Fallback for trailing ends
+		const last = boundaries[boundaries.length - 1];
+		if (!last) return { line: 0, offset: 0 };
+		return { line: last.chunk.line, offset: last.chunk.offset + last.chunk.text.length };
+	};
+
+	return {
+		raw,
+		getRange: /** @param {number} start @param {number} end */ (start, end) => ({
+			start: getPos(start),
+			end: getPos(end),
+		}),
+	};
+};
 
 /**
  * @param {string} str
@@ -150,9 +185,10 @@ const compileConfig = (options = {}) => {
  * @param {number} scanStart
  * @param {number} scanEnd
  * @param {ReturnType<typeof compileConfig>} cfg
+ * @param {(start: number, end: number) => NodeRange} getRange
  * @returns {InlineNode[]}
  */
-const scan = (raw, scanStart, scanEnd, cfg) => {
+const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 	/** @type {InlineNode[]} */
 	const nodes = [];
 	let i = scanStart;
@@ -161,7 +197,7 @@ const scan = (raw, scanStart, scanEnd, cfg) => {
 
 	const flushText = () => {
 		if (textBuf) {
-			nodes.push({ type: 'text', value: textBuf, range: { start: textStart, end: i } });
+			nodes.push({ type: 'text', value: textBuf, range: getRange(textStart, i), raw: textBuf });
 			textBuf = '';
 			textStart = -1;
 		}
@@ -176,7 +212,7 @@ const scan = (raw, scanStart, scanEnd, cfg) => {
 
 		// Custom rules
 		for (const rule of cfg.customRules) {
-			const result = rule.scan(raw, i, scanEnd);
+			const result = rule.scan(raw, i, scanEnd, getRange);
 			if (result !== null) {
 				flushText();
 				const { _end, ...node } = result;
@@ -190,12 +226,12 @@ const scan = (raw, scanStart, scanEnd, cfg) => {
 		if (ch === '\n') {
 			if (cfg.softBreaks === 'break') {
 				flushText();
-				nodes.push({ type: 'soft_break', range: { start: i, end: i + 1 } });
+				nodes.push({ type: 'soft_break', range: getRange(i, i + 1), raw: ch });
 			} else {
 				// Collapse the newline to a single space character.
 				// Flush any pending text first so ranges stay accurate.
 				flushText();
-				nodes.push({ type: 'text', value: ' ', range: { start: i, end: i + 1 } });
+				nodes.push({ type: 'text', value: ' ', range: getRange(i, i + 1), raw: ch });
 			}
 			i++;
 			continue;
@@ -206,7 +242,7 @@ const scan = (raw, scanStart, scanEnd, cfg) => {
 			const next = raw[i + 1];
 			if (next && /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/.test(next)) {
 				flushText();
-				nodes.push({ type: 'escape', char: next, range: { start: i, end: i + 2 } });
+				nodes.push({ type: 'escape', char: next, range: getRange(i, i + 2), raw: `${raw[i]}${raw[i+1]}` });
 				i += 2;
 				continue;
 			}
@@ -219,10 +255,11 @@ const scan = (raw, scanStart, scanEnd, cfg) => {
 			const closeIdx = findBacktickClose(raw, i + tickLen, tickLen, scanEnd);
 			if (closeIdx !== -1) {
 				flushText();
-				let value = raw.slice(i + tickLen, closeIdx);
+				const rawValue = raw.slice(i + tickLen, closeIdx);
+				let value = rawValue
 				if (value.length > 2 && value[0] === ' ' && value[value.length - 1] === ' ')
 					value = value.slice(1, -1);
-				nodes.push({ type: 'inline_code', value, range: { start: i, end: closeIdx + tickLen } });
+				nodes.push({ type: 'inline_code', value, range: getRange(i, closeIdx + tickLen), raw: rawValue });
 				i = closeIdx + tickLen;
 				continue;
 			}
@@ -240,8 +277,9 @@ const scan = (raw, scanStart, scanEnd, cfg) => {
 				flushText();
 				nodes.push({
 					type: 'strike',
-					children: scan(raw, innerStart, closeIdx, cfg),
-					range: { start: i, end: closeIdx + dLen },
+					children: scan(raw, innerStart, closeIdx, cfg, getRange),
+					range: getRange(i, closeIdx + dLen),
+					raw: raw.slice(i, closeIdx + dLen),
 				});
 				i = closeIdx + dLen;
 				continue;
@@ -273,12 +311,14 @@ const scan = (raw, scanStart, scanEnd, cfg) => {
 					nodes.push({
 						type: 'text',
 						value: dc.repeat(excess),
-						range: { start: i, end: tokenStart },
+						range: getRange(i, tokenStart),
+						raw: raw.slice(i, tokenStart)
 					});
 				nodes.push({
 					type: len === 2 ? 'bold' : 'italic',
-					children: scan(raw, innerStart, closeIdx, cfg),
-					range: { start: tokenStart, end: closeIdx + len },
+					children: scan(raw, innerStart, closeIdx, cfg, getRange),
+					range: getRange(tokenStart, closeIdx + len),
+					raw: raw.slice(tokenStart, closeIdx + len)
 				});
 				i = closeIdx + len;
 				continue;
@@ -301,7 +341,8 @@ const scan = (raw, scanStart, scanEnd, cfg) => {
 						type: 'image',
 						href: raw.slice(pOpen, pClose),
 						alt: raw.slice(bOpen, bClose),
-						range: { start: i, end: pClose + 1 },
+						range: getRange(i, pClose + 1),
+						raw: raw.slice(i, pClose + 1)
 					});
 					i = pClose + 1;
 					continue;
@@ -321,8 +362,9 @@ const scan = (raw, scanStart, scanEnd, cfg) => {
 					nodes.push({
 						type: 'link',
 						href: raw.slice(pOpen, pClose),
-						children: scan(raw, bOpen, bClose, cfg),
-						range: { start: i, end: pClose + 1 },
+						children: scan(raw, bOpen, bClose, cfg, getRange),
+						range: getRange(i, pClose + 1),
+						raw: raw.slice(i, pClose + 1),
 					});
 					i = pClose + 1;
 					continue;
@@ -360,16 +402,15 @@ const populate = (node, cfg) => {
 			}
 			break;
 		case 'heading': {
-			const h = /** @type {Heading & { _raw?: string }} */ (node);
-			const raw = h._raw ?? '';
-			h.children = scan(raw, 0, raw.length, cfg);
-			delete h._raw;
+			const h = /** @type {Heading} */ (node);
+			const mapper = createChunkMapper(h.chunks);
+			h.children = scan(mapper.raw, 0, mapper.raw.length, cfg, mapper.getRange);
 			break;
 		}
 		case 'paragraph': {
 			const p = /** @type {Paragraph} */ (node);
-			const joined = p.rawLines.join('\n');
-			p.children = scan(joined, 0, joined.length, cfg);
+			const mapper = createChunkMapper(p.chunks);
+			p.children = scan(mapper.raw, 0, mapper.raw.length, cfg, mapper.getRange);
 			break;
 		}
 		case 'code_block':
@@ -395,8 +436,11 @@ export const createInlineParser = (options = {}) => {
 			populate(root, cfg);
 		},
 		/** Tokenize a raw string directly (useful for custom block nodes). */
-		tokenize(/** @type {string} */ raw) {
-			return scan(raw, 0, raw.length, cfg);
+		tokenize(
+			/** @type {string} */ raw,
+			/** @type {(start: number, end: number) => NodeRange} */ getRange,
+		) {
+			return scan(raw, 0, raw.length, cfg, getRange);
 		},
 	};
 };

@@ -9,20 +9,13 @@ export interface Position {
 	offset: number;
 }
 
-export interface SourceRange {
+export interface NodeRange {
 	start: Position;
 	end: Position;
 }
 
-/**
- * A character-level range within a single inline content string.
- * `start` and `end` are byte offsets from the start of the leaf node's
- * inline content (i.e. `paragraph.rawLines.join('\n')` or `heading._raw`).
- * `end` is exclusive: `content.slice(start, end)` is the matched source text.
- */
-export interface InlineRange {
-	start: number;
-	end: number;
+export interface TextChunk extends Position {
+	text: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -30,7 +23,8 @@ export interface InlineRange {
 // ---------------------------------------------------------------------------
 
 export interface BaseBlock {
-	range: SourceRange;
+	raw: string;
+	range: NodeRange;
 }
 
 export interface ParentBlock<ChildType extends AnyNode = AnyNode> extends BaseBlock {
@@ -72,16 +66,12 @@ export interface ListItem extends ParentBlock<BlockNode> {
 export interface Heading extends ParentBlock<InlineNode> {
 	type: 'heading';
 	level: number;
+	chunks: TextChunk[];
 }
 
 export interface Paragraph extends ParentBlock<InlineNode> {
 	type: 'paragraph';
-	/**
-	 * The raw source lines making up this paragraph's text content, without
-	 * any block-prefix markers. One entry per source line.
-	 * Used for incremental inline re-tokenization.
-	 */
-	rawLines: string[];
+	chunks: TextChunk[];
 }
 
 export interface CodeBlock extends LeafBlock {
@@ -117,7 +107,8 @@ export type BlockNode =
 // ---------------------------------------------------------------------------
 
 export interface BaseInline {
-	range: InlineRange;
+	raw: string;
+	range: NodeRange;
 }
 
 export interface ParentInline extends BaseInline {
@@ -247,7 +238,7 @@ export interface InlineRule {
 	 * (exclusive end position) so the scanner knows how far to advance.
 	 * The node MUST include a populated `range` field.
 	 */
-	scan(raw: string, pos: number, end: number): (InlineNode & { _end: number }) | null;
+	scan(raw: string, pos: number, end: number, getRange: (start: number, end: number) => NodeRange): (InlineNode & { _end: number }) | null;
 }
 
 // ---------------------------------------------------------------------------

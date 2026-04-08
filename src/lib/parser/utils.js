@@ -73,7 +73,7 @@ const walkNode = (node, parent, depth, visitor) => {
 		for (const child of node.children) {
 			// Ensure we are only walking BlockNodes, not InlineNodes
 			if (child.type !== 'text' && child.type !== 'bold' /* etc... or better, use a guard */) {
-                // @ts-expect-error - for dynamic ASTs, TS sometimes still worries about custom nodes
+				// @ts-expect-error - for dynamic ASTs, TS sometimes still worries about custom nodes
 				walkNode(child, node, depth + 1, visitor);
 			}
 		}
@@ -127,10 +127,13 @@ const walkInlineNode = (node, parent, depth, visitor) => {
  */
 export const find = (root, predicate) => {
 	/** @type {BlockNode | null} */
-  let found = null;
+	let found = null;
 	walk(root, (node) => {
 		if (found) return false;
-		if (predicate(node)) { found = node; return false; }
+		if (predicate(node)) {
+			found = node;
+			return false;
+		}
 	});
 	return found;
 };
@@ -192,7 +195,7 @@ export const findInlineAt = (nodes, offset) => {
  */
 const findInlineNodeAt = (node, offset) => {
 	const r = node.range;
-	if (!r || offset < r.start || offset >= r.end) return null;
+	if (!r || offset < r.start.offset || offset >= r.end.offset) return null;
 	// Check children for a deeper match.
 	if ('children' in node && Array.isArray(node.children)) {
 		for (const child of /** @type {any} */ (node).children) {
@@ -232,7 +235,7 @@ const serializeBlock = (node, indent) => {
 			return node.children?.map((c) => serializeBlock(c, indent)).join('\n\n') ?? '';
 
 		case 'blockquote': {
-      if (!node.children) return '';
+			if (!node.children) return '';
 			const inner = node.children.map((c) => serializeBlock(c, '')).join('\n\n');
 			// Prefix every line with `> `.
 			return inner
@@ -243,30 +246,39 @@ const serializeBlock = (node, indent) => {
 
 		case 'list': {
 			const sep = node.tight ? '\n' : '\n\n';
-			return node.children?.map((item) => {
-        return serializeListItem(/** @type {ListItem} */ (item), indent)
-      }).join(sep) ?? '';
+			return (
+				node.children
+					?.map((item) => {
+						return serializeListItem(/** @type {ListItem} */ (item), indent);
+					})
+					.join(sep) ?? ''
+			);
 		}
 
 		case 'list_item': {
-      const listItem = /** @type {ListItem} */ (node);
+			const listItem = /** @type {ListItem} */ (node);
 			// Serialized via serializeListItem; shouldn't be called directly.
 			return serializeListItem(listItem, indent);
-    }
-		case 'heading':{
-      const heading = /** @type {Heading} */ (node);
-			return `${indent}${'#'.repeat(heading.level)} ${serializeInlines(heading.children)}`;}
+		}
+		case 'heading': {
+			const heading = /** @type {Heading} */ (node);
+			return `${indent}${'#'.repeat(heading.level)} ${serializeInlines(heading.children)}`;
+		}
 
 		case 'paragraph': {
-      const paragraph = /** @type {Paragraph} */ (node);
-			const lines = paragraph.rawLines ?? [serializeInlines(paragraph.children)];
+			const paragraph = /** @type {Paragraph} */ (node);
+			const lines = paragraph.chunks?.map((c) => c.text) ?? [serializeInlines(paragraph.children)];
 			return lines.map((l) => `${indent}${l}`).join('\n');
 		}
 
 		case 'code_block': {
-      const codeBlock = /** @type {CodeBlock} */ (node);
+			const codeBlock = /** @type {CodeBlock} */ (node);
 			const fence = codeBlock.fenceChar?.repeat(3) ?? '';
-			const lines = [`${indent}${fence}${codeBlock.lang}`, ...codeBlock.value.split('\n').map((l) => `${indent}${l}`), `${indent}${fence}`];
+			const lines = [
+				`${indent}${fence}${codeBlock.lang}`,
+				...codeBlock.value.split('\n').map((l) => `${indent}${l}`),
+				`${indent}${fence}`,
+			];
 			return lines.join('\n');
 		}
 
@@ -277,12 +289,13 @@ const serializeBlock = (node, indent) => {
 			// Custom block node — best-effort: serialize children if present.
 			if (isParentBlock(node)) {
 				return node.children
-          .filter(
-            /**
-             * @param c
-             * @returns {c is BlockNode}
-             */
-            (c) => typeof c.range.start == 'object' && typeof c.range.end == 'object')
+					.filter(
+						/**
+						 * @param c
+						 * @returns {c is BlockNode}
+						 */
+						(c) => typeof c.range.start == 'object' && typeof c.range.end == 'object',
+					)
 					.map((c) => serializeBlock(c, indent))
 					.join('\n\n');
 			}
@@ -299,7 +312,7 @@ const serializeListItem = (item, indent) => {
 	const marker = item.marker + ' ';
 	const childIndent = indent + ' '.repeat(marker.length);
 	const children = item.children.map((c, i) =>
-		i === 0 ? serializeBlock(c, '') : serializeBlock(c, childIndent)
+		i === 0 ? serializeBlock(c, '') : serializeBlock(c, childIndent),
 	);
 	const body = children.join('\n\n');
 	// Prefix the first line with the marker, continuation lines with childIndent.
@@ -321,15 +334,25 @@ const serializeInlines = (nodes) => nodes.map(serializeInline).join('');
  */
 const serializeInline = (node) => {
 	switch (node.type) {
-		case 'text':        return /** @type {string} */ (node.value);
-		case 'soft_break':  return '\n';
-		case 'bold':        return `**${serializeInlines(/** @type {Bold} */ (node).children)}**`;
-		case 'italic':      return `*${serializeInlines(/** @type {Italic} */ (node).children)}*`;
-		case 'inline_code': return `\`${node.value}\``;
-		case 'strike':      return `~~${serializeInlines(/** @type {Strike} */ (node).children)}~~`;
-		case 'link':        return `[${serializeInlines(/** @type {LinkNode} */ (node).children)}](${node.href})`;
-		case 'image':       return `![${node.alt}](${node.href})`;
-		case 'escape':      return `\\${node.char}`;
-		default:            return isParentInline(node) ? serializeInlines(node.children) : '';
+		case 'text':
+			return /** @type {string} */ (node.value);
+		case 'soft_break':
+			return '\n';
+		case 'bold':
+			return `**${serializeInlines(/** @type {Bold} */ (node).children)}**`;
+		case 'italic':
+			return `*${serializeInlines(/** @type {Italic} */ (node).children)}*`;
+		case 'inline_code':
+			return `\`${node.value}\``;
+		case 'strike':
+			return `~~${serializeInlines(/** @type {Strike} */ (node).children)}~~`;
+		case 'link':
+			return `[${serializeInlines(/** @type {LinkNode} */ (node).children)}](${node.href})`;
+		case 'image':
+			return `![${node.alt}](${node.href})`;
+		case 'escape':
+			return `\\${node.char}`;
+		default:
+			return isParentInline(node) ? serializeInlines(node.children) : '';
 	}
 };

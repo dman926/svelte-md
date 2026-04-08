@@ -31,14 +31,14 @@
  *  999  paragraph
  */
 
-import { isParentBlock } from './utils.js';
+import { isParentBlock } from './utils';
 
 /**
  * @import {
- *   BlockNode, InlineNode, Document, Blockquote, List,
+ *   BlockNode, Document, Blockquote, List,
  *   ListItem, Heading, Paragraph, CodeBlock, ThematicBreak,
  *   BlockRule, BlockRuleContext, BlockParserOptions,
- *   InlineRange, SourceRange, Position,
+ *   NodeRange, Position,
  * } from './types';
  */
 
@@ -47,7 +47,7 @@ import { isParentBlock } from './utils.js';
 // ---------------------------------------------------------------------------
 
 const BLANK_RE = /^\s*$/;
-const HEADING_RE = /^(#{1,6})(?:[ \t]|$)(.*)/;
+const HEADING_RE = /^(#{1,6})([ \t].*|$)/;
 const THEMATIC_RE = /^[ \t]{0,3}([-*_])(?:\s*\1){2,}\s*$/;
 const BLOCKQUOTE_RE = /^[ \t]{0,3}>/;
 const UL_RE = /^([ \t]*)([-*+])(?:[ \t])(.*)/;
@@ -64,7 +64,7 @@ const mkPos = (line, offset) => ({ line, offset });
 
 /**
  * @param {number} sl @param {number} so @param {number} el @param {number} eo
- * @returns {SourceRange}
+ * @returns {NodeRange}
  */
 const mkRange = (sl, so, el, eo) => ({ start: mkPos(sl, so), end: mkPos(el, eo) });
 
@@ -86,6 +86,7 @@ export const thematicBreakRule = {
 		const node = {
 			type: 'thematic_break',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+			raw: line,
 		};
 		return { node };
 	},
@@ -107,18 +108,16 @@ export const headingRule = {
 		const m = line.match(HEADING_RE);
 		if (!m) return null;
 		const level = m[1].length;
-		// Strip optional closing `#` sequence (ATX closing sequence).
-		const text = m[2]
-			.replace(/\s+#+\s*$/, '')
-			.replace(/^#+\s*$/, '')
-			.trim();
-		/** @type {Heading & { _raw: string }} */
+		const text = m[2];
+		const chunk = { text, line: ctx.lineIndex, offset: ctx.lineOffset + level };
+		/** @type {Heading} */
 		const node = {
 			type: 'heading',
 			level,
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
 			children: [],
-			_raw: text,
+			raw: line,
+			chunks: [chunk],
 		};
 		return { node };
 	},
@@ -151,6 +150,7 @@ export const codeBlockRule = {
 			fenceChar,
 			value: '',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+			raw: line,
 			_fenceLen: fenceStr.length,
 		};
 		return { node };
@@ -193,6 +193,7 @@ export const blockquoteRule = {
 		const node = {
 			type: 'blockquote',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+			raw: line,
 			children: [],
 		};
 		return { node, remainder: stripped, remainderOffset: ctx.lineOffset + consumed };
@@ -231,6 +232,7 @@ export const listItemRule = {
 			type: 'list_item',
 			marker,
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+			raw: line,
 			children: [],
 			_indent: indent,
 			_contentIndent: contentIndent,
@@ -275,8 +277,9 @@ export const paragraphRule = {
 		const node = {
 			type: 'paragraph',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
+			raw: line,
 			children: [],
-			rawLines: [line],
+			chunks: [{ text: line, line: ctx.lineIndex, offset: ctx.lineOffset }],
 		};
 		return { node };
 	},
@@ -290,7 +293,7 @@ export const paragraphRule = {
 		// Fenced code open also interrupts a paragraph.
 		if (FENCE_OPEN_RE.test(line)) return null;
 		const p = /** @type {Paragraph} */ (node);
-		p.rawLines.push(line);
+		p.chunks.push({ text: line, line: ctx.lineIndex, offset: ctx.lineOffset });
 		p.range = { ...p.range, end: mkPos(ctx.lineIndex, ctx.lineOffset + line.length) };
 		return { remainder: line, remainderOffset: ctx.lineOffset };
 	},
@@ -353,7 +356,9 @@ const makeListRule = () => ({
 
 		// A new compatible list item continues the list.
 		const ul = line.match(UL_RE);
-		const ol = /** @type {typeof ul extends RegExpMatchArray ? null : RegExpMatchArray} */ (line.match(OL_RE));
+		const ol = /** @type {typeof ul extends RegExpMatchArray ? null : RegExpMatchArray} */ (
+			line.match(OL_RE)
+		);
 		if (ul || ol) {
 			const marker = ul ? ul[2] : `${ol[2]}${ol[3]}`;
 			if (markersCompatible(list.children.at(-1)?.marker ?? '', marker)) {
@@ -415,6 +420,7 @@ const wrapInList = (stack, itemNode, ctx) => {
 		start: isOrdered ? parseInt(itemNode.marker, 10) : 1,
 		tight: true,
 		range: { ...itemNode.range },
+		raw: itemNode.raw,
 		children: [itemNode],
 	};
 	// Attach to current innermost container.
@@ -457,7 +463,7 @@ const parseBlockTree = (source, rules) => {
 	let offset = 0;
 
 	/** @type {Document} */
-	const root = { type: 'document', range: mkRange(0, 0, 0, 0), children: [] };
+	const root = { type: 'document', range: mkRange(0, 0, 0, 0), raw: source, children: [] };
 
 	/** @type {StackEntry[]} */
 	const stack = [entry(root, documentRule, 0, 0)];
@@ -522,7 +528,7 @@ const parseBlockTree = (source, rules) => {
 					!OL_RE.test(rawLine)
 				) {
 					const p = /** @type {Paragraph} */ (leaf);
-					p.rawLines.push(rawLine);
+					p.chunks.push({ text: rawLine, line: lineIndex, offset: offset });
 					p.range = { ...p.range, end: mkPos(lineIndex, offset + rawLine.length) };
 					lastContinued = stack.length - 1;
 					lazyContinued = true;
@@ -606,7 +612,7 @@ const parseBlockTree = (source, rules) => {
  * @param {number}    deltaOffset
  */
 export const shiftRanges = (node, deltaLines, deltaOffset) => {
-	const shift = (/** @type {import('./types').SourceRange} */ r) => ({
+	const shift = (/** @type {NodeRange}} */ r) => ({
 		start: mkPos(r.start.line + deltaLines, r.start.offset + deltaOffset),
 		end: mkPos(r.end.line + deltaLines, r.end.offset + deltaOffset),
 	});
