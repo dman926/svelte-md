@@ -85,10 +85,18 @@ export function restoreSelection(editorEl, selection, doc) {
 
 		while (walker.nextNode()) {
 			const len = walker.currentNode.textContent?.length ?? 0;
-			if (current <= localTarget && localTarget <= current + len) {
+			if (current + len >= localTarget) {
 				return { node: walker.currentNode, offset: localTarget - current };
 			}
 			current += len;
+		}
+		// Fallback: place at the very end of the element's last text node
+		const fallbackWalker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+		/** @type {Node | null} */
+		let lastTextNode = null;
+		while (fallbackWalker.nextNode()) lastTextNode = fallbackWalker.currentNode;
+		if (lastTextNode) {
+			return { node: lastTextNode, offset: lastTextNode.textContent?.length ?? 0 };
 		}
 		return { node: el, offset: 0 };
 	};
@@ -116,8 +124,16 @@ export function restoreSelection(editorEl, selection, doc) {
  */
 function findDeepestNodeAtOffset(node, offset) {
 	if (node.children) {
+		// Pass 1: strict half-open interval [start, end)
 		for (const child of node.children) {
-			if (offset >= child.range.start.offset && offset <= child.range.end.offset) {
+			const { start, end } = child.range;
+			if (offset >= start.offset && offset < end.offset) {
+				return findDeepestNodeAtOffset(child, offset);
+			}
+		}
+		// Pass 2: exact end-boundary match (cursor at trailing edge of last content)
+		for (const child of node.children) {
+			if (offset === child.range.end.offset) {
 				return findDeepestNodeAtOffset(child, offset);
 			}
 		}

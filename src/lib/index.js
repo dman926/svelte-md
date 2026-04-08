@@ -36,7 +36,7 @@
  * ```svelte
  * <MarkdownEditor bind:value>
  *   {#snippet tokenSnippet(token)}
- *     {#if token.type === 'mention'}
+ *     {#if token.type == 'mention'}
  *       <span class="mention" data-md-token={token.start}>@{token.content}</span>
  *     {:else}
  *       <!-- fall through to MarkdownLine for built-in types -->
