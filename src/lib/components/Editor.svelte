@@ -34,9 +34,7 @@
 		debug: boolean;
 	}> = $props();
 
-	let rawValue = $state(untrack(() => value));
-	// TODO: instead of calling parser.parse on every keystroke, I want to use parser.update to incrementally update the AST.
-	let parsed = $state(untrack(() => parser.parse(rawValue)));
+	let parsed = $state(untrack(() => parser.parse(value)));
 	/** The editor root element */
 	let editorEl = $state<HTMLElement | null>(null);
 	/** True while an IME composition is in progress */
@@ -56,9 +54,9 @@
 	 * changes to avoid fighting with the user's in-progress editing.
 	 */
 	$effect(() => {
-		if (!isFocused && value != rawValue) {
-			rawValue = value ?? '';
-			parsed = parser.parse(rawValue);
+		const v = value;
+		if (untrack(() => !isFocused)) {
+			parsed = parser.parse(v);
 		}
 	});
 
@@ -76,14 +74,14 @@
 
 		if (start == end) {
 			if (deleteDir == 'backward' && start > 0) start -= 1;
-			else if (deleteDir == 'forward' && end < rawValue.length) end += 1;
+			else if (deleteDir == 'forward' && end < value.length) end += 1;
 		}
 
-		const nextSource = rawValue.slice(0, start) + insertText + rawValue.slice(end);
+		const nextSource = value.slice(0, start) + insertText + value.slice(end);
 
 		// Calculate EditRange for incremental update
-		const startLine = rawValue.slice(0, start).split('\n').length - 1;
-		const endLine = rawValue.slice(0, end).split('\n').length - 1;
+		const startLine = value.slice(0, start).split('\n').length - 1;
+		const endLine = value.slice(0, end).split('\n').length - 1;
 		const addedLines = insertText.split('\n').length - 1;
 		const removedLines = endLine - startLine;
 
@@ -95,7 +93,6 @@
 
 		// Update model
 		parsed = parser.update(parsed, nextSource, edit);
-		rawValue = nextSource;
 		value = nextSource;
 		oninput?.(nextSource);
 
@@ -162,13 +159,12 @@
 		// We re-parse fully if the DOM gets out of sync because incremental
 		// update requires precise EditRanges which browser-mutated DOM doesn't provide easily.
 		const newRaw = editorEl.innerText; // Simple serialization
-		if (newRaw == rawValue) return;
+		if (newRaw == value) return;
 
 		const cursor = captureSelection(editorEl);
-		rawValue = newRaw;
-		value = rawValue;
-		parsed = parser.parse(rawValue); // Full re-parse as fallback
-		oninput?.(rawValue);
+		value = newRaw;
+		parsed = parser.parse(value); // Full re-parse as fallback
+		oninput?.(value);
 
 		await tick();
 		if (editorEl && cursor) restoreSelection(editorEl, cursor, parsed);
@@ -186,9 +182,8 @@
 		// IME finished, treat the current DOM as the new source
 		const newRaw = editorEl.innerText;
 		parsed = parser.parse(newRaw);
-		rawValue = newRaw;
-		value = rawValue;
-		oninput?.(rawValue);
+		value = newRaw;
+		oninput?.(value);
 
 		await tick();
 		if (editorEl && savedCursor) {
@@ -205,7 +200,7 @@
 			const isSubmit = (submitOnEnter && !e.shiftKey) || e.ctrlKey || e.metaKey;
 			if (isSubmit) {
 				e.preventDefault();
-				onsubmit?.(rawValue);
+				onsubmit?.(value);
 			}
 		}
 	};
@@ -216,7 +211,7 @@
 
 	const handleBlur = () => {
 		isFocused = false;
-		onchange?.(rawValue);
+		onchange?.(value);
 	};
 
 	const handlePaste = (e: ClipboardEvent) => {
