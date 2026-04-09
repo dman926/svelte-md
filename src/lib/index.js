@@ -48,8 +48,8 @@
 
 // ── Components ────────────────────────────────────────────────────────────────
 
-export { default as MarkdownEditor } from './components/Editor.svelte';
-export { default as MarkdownRenderer } from './components/Renderer.svelte';
+export { default as MarkdownEditor, default as Editor } from './components/Editor.svelte';
+export { default as MarkdownRenderer, default as Renderer } from './components/Renderer.svelte';
 
 // ── Parser ────────────────────────────────────────────────────────────────────
 

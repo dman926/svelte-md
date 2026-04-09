@@ -1,7 +1,13 @@
 {
-	"name": "svelte-md",
+	"name": "@dman926/svelte-md",
 	"version": "0.0.1",
 	"license": "LGPL-3.0-or-later",
+	"author": "Dennis James Stelmach <dj@dstelmach.com>",
+	"description": "A lightweight markdown renderer and editor for svelte",
+	"repository": {
+    "type": "git",
+    "url": "git+https://github.com/dman926/svelte-md.git"
+  },
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run prepack",
@@ -66,6 +72,8 @@
 		"vitest": "^4.1.0"
 	},
 	"keywords": [
-		"svelte"
+		"svelte",
+		"library",
+		"markdown"
 	]
 }

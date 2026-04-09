@@ -255,8 +255,9 @@ export interface InlineParserOptions {
 	disableRules?: string[];
 	/**
 	 * How single-newline soft breaks inside paragraphs are represented.
-	 * - `'space'` (default) — collapsed to a space in the text value.
-	 * - `'break'` — emitted as a `soft_break` node.
+	 * - `'space'` - collapsed to a space in the text value.
+	 * - `'break'` - emitted as a `soft_break` node.
+	 * @default 'space'
 	 */
 	softBreaks?: 'space' | 'break';
 }

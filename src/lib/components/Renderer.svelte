@@ -6,7 +6,23 @@
 		debug,
 		customNodes,
 		...props
-	}: ({ value: string; parser?: Parser } | { parsed: Document }) & {
+	}: (
+		| {
+				/** The raw markdown string */
+				value: string;
+				/**
+				 * Override the {@link defaultParser|default parser}
+				 */
+				parser?: Parser;
+		  }
+		| {
+				/**
+				 * Provide a pre-parsed Document. Should only be used by the Editor.
+				 * Consider providing `parser` with your value instead
+				 */
+				parsed: Document;
+		  }
+	) & {
 		customNodes?: CustomNodesSnippet;
 		debug?: boolean;
 	} = $props();
