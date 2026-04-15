@@ -375,7 +375,8 @@ const makeListRule = () => ({
 	},
 	finalize(node) {
 		const list = /** @type {List & { _lastContentIndent?: number }} */ (node);
-		list.tight = !list.children.some((item) => /** @type {any} */ (item)._hadBlank);
+		// If any line (except the last cause it doesn't matter) had a blank, the list is loose.
+		list.tight = !list.children.slice(0, -1).some((item) => /** @type {any} */ (item)._hadBlank);
 		for (const item of list.children) delete (/** @type {any} */ (item)._hadBlank);
 		delete list._lastContentIndent;
 	},
@@ -419,6 +420,8 @@ const wrapInList = (stack, itemNode, ctx) => {
 		raw: itemNode.raw,
 		children: [itemNode],
 	};
+	itemNode.parent = listNode;
+
 	// Attach to current innermost container.
 	if ('children' in parentNode && Array.isArray(parentNode.children)) {
 		/** @type {any} */ (parentNode).children.push(listNode);
