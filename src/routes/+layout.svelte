@@ -39,10 +39,13 @@
 	a {
 		border-radius: 1rem;
 		padding: 0 0.35rem;
-		transition: background-color,color 0.2s linear;
+		transition:
+			background-color,
+			color 0.2s linear;
 	}
 
-	a:hover, a.selected {
+	a:hover,
+	a.selected {
 		background-color: purple;
 		color: white;
 	}

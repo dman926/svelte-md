@@ -5,9 +5,9 @@
 	"author": "Dennis James Stelmach <dj@dstelmach.com>",
 	"description": "A lightweight markdown renderer and editor for svelte",
 	"repository": {
-    "type": "git",
-    "url": "git+https://github.com/dman926/svelte-md.git"
-  },
+		"type": "git",
+		"url": "git+https://github.com/dman926/svelte-md.git"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build && npm run prepack",

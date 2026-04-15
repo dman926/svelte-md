@@ -62,16 +62,16 @@ pnpm add @dman926/svelte-md
 		},
 		inline: {
 			rules: [
-        // Add extra rules for custom inline tokens
-        // {
-        //   name: 'some_new_inline',
-        //   scan: (raw, pos, end, getRange) => { /* scan the raw string for the token */ }
-        // }
-      ],
+				// Add extra rules for custom inline tokens
+				// {
+				//   name: 'some_new_inline',
+				//   scan: (raw, pos, end, getRange) => { /* scan the raw string for the token */ }
+				// }
+			],
 			disableRules: [
-        // Disable any existing block rules by name
+				// Disable any existing block rules by name
 				// 'image'
-      ],
+			],
 			// How to handle breaks inside paragraphs. 'space' or 'break'
 			softBreaks: 'space',
 		},
@@ -85,19 +85,15 @@ pnpm add @dman926/svelte-md
 
 ```svelte
 <script>
-  import { Editor /* `MarkdownEditor` */ } from '@dman926/svelte-md';
+	import { Editor /* `MarkdownEditor` */ } from '@dman926/svelte-md';
 
-  let sourceString = $state('# My markdown string')
+	let sourceString = $state('# My markdown string');
 
-  const onsubmit = () => {
-    // Handle the submission
-  }
+	const onsubmit = () => {
+		// Handle the submission
+	};
 </script>
 
 <!-- Optionally provide a parser just like with Renderer -->
-<Editor
-  bind:value={sourceString}
-  {onsubmit}
-  placeholder="Type markdown..."
-/>
+<Editor bind:value={sourceString} {onsubmit} placeholder="Type markdown..." />
 ```

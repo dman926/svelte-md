@@ -244,7 +244,12 @@ export interface InlineRule {
 	 * (exclusive end position) so the scanner knows how far to advance.
 	 * The node MUST include a populated `range` field.
 	 */
-	scan(raw: string, pos: number, end: number, getRange: (start: number, end: number) => NodeRange): (InlineNode & { _end: number }) | null;
+	scan(
+		raw: string,
+		pos: number,
+		end: number,
+		getRange: (start: number, end: number) => NodeRange,
+	): (InlineNode & { _end: number }) | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -242,7 +242,12 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 			const next = raw[i + 1];
 			if (next && /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/.test(next)) {
 				flushText();
-				nodes.push({ type: 'escape', char: next, range: getRange(i, i + 2), raw: `${raw[i]}${raw[i+1]}` });
+				nodes.push({
+					type: 'escape',
+					char: next,
+					range: getRange(i, i + 2),
+					raw: `${raw[i]}${raw[i + 1]}`,
+				});
 				i += 2;
 				continue;
 			}
@@ -256,10 +261,15 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 			if (closeIdx != -1) {
 				flushText();
 				const rawValue = raw.slice(i + tickLen, closeIdx);
-				let value = rawValue
+				let value = rawValue;
 				if (value.length > 2 && value[0] == ' ' && value[value.length - 1] == ' ')
 					value = value.slice(1, -1);
-				nodes.push({ type: 'inline_code', value, range: getRange(i, closeIdx + tickLen), raw: rawValue });
+				nodes.push({
+					type: 'inline_code',
+					value,
+					range: getRange(i, closeIdx + tickLen),
+					raw: rawValue,
+				});
 				i = closeIdx + tickLen;
 				continue;
 			}
@@ -312,13 +322,13 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 						type: 'text',
 						value: dc.repeat(excess),
 						range: getRange(i, tokenStart),
-						raw: raw.slice(i, tokenStart)
+						raw: raw.slice(i, tokenStart),
 					});
 				nodes.push({
 					type: len == 2 ? 'bold' : 'italic',
 					children: scan(raw, innerStart, closeIdx, cfg, getRange),
 					range: getRange(tokenStart, closeIdx + len),
-					raw: raw.slice(tokenStart, closeIdx + len)
+					raw: raw.slice(tokenStart, closeIdx + len),
 				});
 				i = closeIdx + len;
 				continue;
@@ -342,7 +352,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 						href: raw.slice(pOpen, pClose),
 						alt: raw.slice(bOpen, bClose),
 						range: getRange(i, pClose + 1),
-						raw: raw.slice(i, pClose + 1)
+						raw: raw.slice(i, pClose + 1),
 					});
 					i = pClose + 1;
 					continue;
