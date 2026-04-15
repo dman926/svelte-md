@@ -37,6 +37,7 @@
 		border: 1px solid black;
 		border-radius: 1em;
 		padding: 0.25rem 0.5rem;
+		white-space: pre-wrap;
 	}
 
 	pre {
