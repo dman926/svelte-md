@@ -7,6 +7,7 @@
 	import Renderer from './Renderer.svelte';
 
 	let {
+		ref: editorEl = $bindable(null),
 		value = $bindable(''),
 		customNodes,
 		parser = defaultParser,
@@ -18,8 +19,11 @@
 		onchange,
 		oninput,
 		onsubmit,
+		class: className,
 		debug,
 	}: Partial<{
+		/** The editor root element */
+		ref: HTMLDivElement | null;
 		value: string;
 		customNodes: CustomNodesSnippet;
 		parser: Parser;
@@ -31,12 +35,11 @@
 		onchange: (value: string) => void;
 		oninput: (value: string) => void;
 		onsubmit: (value: string) => void;
+		class: string;
 		debug: boolean;
 	}> = $props();
 
 	let parsed = $state(untrack(() => parser.parse(value)));
-	/** The editor root element */
-	let editorEl = $state<HTMLElement | null>(null);
 	/** True while an IME composition is in progress */
 	let isComposing = $state(false);
 	/** True while the editor has focus */
@@ -228,6 +231,7 @@
 
 <div
 	bind:this={editorEl}
+	class={className}
 	role="textbox"
 	tabindex="0"
 	contenteditable={!(disabled || readonly)}
