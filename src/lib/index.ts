@@ -10,7 +10,7 @@
  *
  * <MarkdownRenderer value="Hello **world**" />
  * ```
- * 
+ *
  * ```svelte
  * <script>
  *   import { MarkdownEditor } from '@dman926/svelte-md';
@@ -57,6 +57,8 @@ export { createParser, defaultParser } from './parser';
 export { createBlockParser } from './parser/block.js';
 export { createInlineParser } from './parser/inline.js';
 
-// ── Cursor ────────────────────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────────────
 
-// ── DOM utilities ─────────────────────────────────────────────────────────────
+export type { CustomNodesSnippet } from './components/Token.svelte';
+export type * from './components/cursor';
+export type * from './parser/types';
