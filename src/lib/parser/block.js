@@ -286,7 +286,10 @@ export const paragraphRule = {
 
 	tryContinue(line, node, ctx) {
 		// Only continue if no other blocks can consume
-		if (!ctx.rules.every((rule) => rule.name == 'paragraph' || !rule.tryStart(line, ctx)))
+		if (
+			BLANK_RE.test(line) ||
+			!ctx.rules.every((rule) => rule.name == 'paragraph' || !rule.tryStart(line, ctx))
+		)
 			return null;
 		const p = /** @type {Paragraph} */ (node);
 		p.chunks.push({ text: line, line: ctx.lineIndex, offset: ctx.lineOffset });
@@ -519,6 +522,7 @@ const parseBlockTree = (source, rules) => {
 				const leaf = stack[stack.length - 1].node;
 				if (
 					leaf.type == 'paragraph' &&
+					!BLANK_RE.test(line) &&
 					rules.every((rule) => rule.name == 'paragraph' || !rule.tryStart(line, ctx))
 				) {
 					const p = /** @type {Paragraph} */ (leaf);
