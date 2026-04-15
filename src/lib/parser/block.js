@@ -38,7 +38,7 @@ import { isParentBlock } from './utils';
  *   BlockNode, Document, Blockquote, List,
  *   ListItem, Heading, Paragraph, CodeBlock, ThematicBreak,
  *   BlockRule, BlockRuleContext, BlockParserOptions,
- *   NodeRange, Position,
+ *   NodeRange, Position, AnyNode
  * } from './types';
  */
 
@@ -285,13 +285,12 @@ export const paragraphRule = {
 	},
 
 	tryContinue(line, node, ctx) {
-		if (BLANK_RE.test(line)) return null;
-		if (THEMATIC_RE.test(line)) return null;
-		if (HEADING_RE.test(line)) return null;
-		if (UL_RE.test(line)) return null;
-		if (OL_RE.test(line)) return null;
-		// Fenced code open also interrupts a paragraph.
-		if (FENCE_OPEN_RE.test(line)) return null;
+		// Only continue if no other blocks can consume
+		if (
+			BLANK_RE.test(line) ||
+			!ctx.rules.every((rule) => rule.name == 'paragraph' || !rule.tryStart(line, ctx))
+		)
+			return null;
 		const p = /** @type {Paragraph} */ (node);
 		p.chunks.push({ text: line, line: ctx.lineIndex, offset: ctx.lineOffset });
 		p.range = { ...p.range, end: mkPos(ctx.lineIndex, ctx.lineOffset + line.length) };
@@ -379,7 +378,8 @@ const makeListRule = () => ({
 	},
 	finalize(node) {
 		const list = /** @type {List & { _lastContentIndent?: number }} */ (node);
-		list.tight = !list.children.some((item) => /** @type {any} */ (item)._hadBlank);
+		// If any line (except the last cause it doesn't matter) had a blank, the list is loose.
+		list.tight = !list.children.slice(0, -1).some((item) => /** @type {any} */ (item)._hadBlank);
 		for (const item of list.children) delete (/** @type {any} */ (item)._hadBlank);
 		delete list._lastContentIndent;
 	},
@@ -423,6 +423,8 @@ const wrapInList = (stack, itemNode, ctx) => {
 		raw: itemNode.raw,
 		children: [itemNode],
 	};
+	itemNode.parent = listNode;
+
 	// Attach to current innermost container.
 	if ('children' in parentNode && Array.isArray(parentNode.children)) {
 		/** @type {any} */ (parentNode).children.push(listNode);
@@ -493,7 +495,7 @@ const parseBlockTree = (source, rules) => {
 		// ── Phase 1: try to continue each open block ──────────────────────────
 		for (let i = 1; i < stack.length; i++) {
 			const e = stack[i];
-			const ctx = { lines, lineIndex, lineOffset: offset + lineOff };
+			const ctx = { lines, lineIndex, lineOffset: offset + lineOff, rules };
 
 			// Code block: handles close internally via result.close.
 			if (e.node.type == 'code_block') {
@@ -520,12 +522,8 @@ const parseBlockTree = (source, rules) => {
 				const leaf = stack[stack.length - 1].node;
 				if (
 					leaf.type == 'paragraph' &&
-					!BLANK_RE.test(rawLine) &&
-					!THEMATIC_RE.test(rawLine) &&
-					!HEADING_RE.test(rawLine) &&
-					!FENCE_OPEN_RE.test(rawLine) &&
-					!UL_RE.test(rawLine) &&
-					!OL_RE.test(rawLine)
+					!BLANK_RE.test(line) &&
+					rules.every((rule) => rule.name == 'paragraph' || !rule.tryStart(line, ctx))
 				) {
 					const p = /** @type {Paragraph} */ (leaf);
 					p.chunks.push({ text: rawLine, line: lineIndex, offset: offset });
@@ -557,13 +555,14 @@ const parseBlockTree = (source, rules) => {
 		let openedContainer = true;
 		while (openedContainer && !BLANK_RE.test(line)) {
 			openedContainer = false;
-			const ctx = { lines, lineIndex, lineOffset: offset + lineOff };
+			const ctx = { lines, lineIndex, lineOffset: offset + lineOff, rules };
 
 			for (const rule of rules) {
 				const result = rule.tryStart(line, ctx);
 				if (result == null) continue;
 
 				const { node, remainder, remainderOffset } = result;
+				node.parent = stack[stack.length - 1].node;
 
 				if (node.type == 'list_item') {
 					wrapInList(stack, /** @type {ListItem} */ (node), ctx);

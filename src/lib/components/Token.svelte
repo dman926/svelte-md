@@ -57,13 +57,19 @@
 {:else if node.type == 'blockquote'}
 	<blockquote {...dataProps}>{@render children()}</blockquote>
 {:else if node.type == 'list'}
-	<ul {...dataProps}>{@render children()}</ul>
+	<svelte:element this={node.ordered ? 'ol' : 'ul'} {...dataProps}>
+		{@render children()}
+	</svelte:element>
 {:else if node.type == 'list_item'}
 	<li {...dataProps}>{@render children()}</li>
 {:else if node.type == 'heading'}
 	<svelte:element this={`h${node.level}`} {...dataProps}>{@render children()}</svelte:element>
 {:else if node.type == 'paragraph'}
-	<p {...dataProps}>{@render children()}</p>
+	{#if node.parent?.type == 'list_item' && node.parent.parent?.type == 'list' && node.parent.parent.tight}
+		<span {...dataProps}>{@render children()}</span>
+	{:else}
+		<p {...dataProps}>{@render children()}</p>
+	{/if}
 {:else if node.type == 'code_block'}
 	<!--TODO: handle syntax highlighting  -->
 	<pre {...dataProps}><code>{node.value}</code></pre>

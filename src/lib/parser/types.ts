@@ -25,6 +25,7 @@ export interface TextChunk extends Position {
 export interface BaseBlock {
 	raw: string;
 	range: NodeRange;
+	parent?: AnyNode;
 }
 
 export interface ParentBlock<ChildType extends AnyNode = AnyNode> extends BaseBlock {
@@ -195,6 +196,8 @@ export interface BlockRuleContext {
 	lineIndex: number;
 	/** Byte offset of the start of `lines[lineIndex]` in the full source. */
 	lineOffset: number;
+	/** All block rules of the parser */
+	rules: BlockRule[];
 }
 
 export interface BlockStartResult {
@@ -217,7 +220,10 @@ export interface BlockContinueResult {
 
 export interface BlockRule {
 	name: string;
-	/** Ascending priority. Built-ins: break=10, heading=20, code=30, bq=40, list=50, para=999. */
+	/**
+	 * Ascending priority. Built-ins: break=10, heading=20, code=30, bq=40, list=50, para=999.
+	 * @default 50
+	 */
 	priority?: number;
 	isContainer: boolean;
 	tryStart(line: string, context: BlockRuleContext): BlockStartResult | null;
@@ -238,7 +244,12 @@ export interface InlineRule {
 	 * (exclusive end position) so the scanner knows how far to advance.
 	 * The node MUST include a populated `range` field.
 	 */
-	scan(raw: string, pos: number, end: number, getRange: (start: number, end: number) => NodeRange): (InlineNode & { _end: number }) | null;
+	scan(
+		raw: string,
+		pos: number,
+		end: number,
+		getRange: (start: number, end: number) => NodeRange,
+	): (InlineNode & { _end: number }) | null;
 }
 
 // ---------------------------------------------------------------------------

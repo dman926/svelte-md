@@ -1,20 +1,30 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { MarkdownEditor } from '$lib';
+	import { createParser, MarkdownEditor } from '$lib';
 	import { fade } from 'svelte/transition';
 
 	const { data } = $props();
 
 	let dirty = $state(false);
 	let value = $state(untrack(() => data.content));
+
+	let softBreak = $state(false);
+	const parser = $derived(createParser({ inline: { softBreaks: softBreak ? 'space' : 'break' } }));
 </script>
 
-<h2>Editor</h2>
+<div class="header">
+	<h2>Editor</h2>
+	<label>
+		<input type="checkbox" bind:checked={softBreak} />
+		Soft Breaks
+	</label>
+</div>
 <form method="POST">
 	<div class="md-input">
 		<!-- TODO: does not accept a "name" prop nor has the capability to do so -->
 		<MarkdownEditor
 			bind:value
+			{parser}
 			oninput={() => {
 				if (!dirty) dirty = true;
 			}}
@@ -38,6 +48,12 @@
 <pre>{value}</pre>
 
 <style>
+	.header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
 	pre {
 		white-space: pre;
 		overflow-x: auto;
@@ -56,5 +72,6 @@
 		border: 1px solid black;
 		border-radius: 1em;
 		padding: 0.25rem 0.5rem;
+		white-space: pre-wrap;
 	}
 </style>
