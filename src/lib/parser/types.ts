@@ -25,6 +25,7 @@ export interface TextChunk extends Position {
 export interface BaseBlock {
 	raw: string;
 	range: NodeRange;
+	parent?: AnyNode;
 }
 
 export interface ParentBlock<ChildType extends AnyNode = AnyNode> extends BaseBlock {

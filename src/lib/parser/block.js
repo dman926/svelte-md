@@ -38,7 +38,7 @@ import { isParentBlock } from './utils';
  *   BlockNode, Document, Blockquote, List,
  *   ListItem, Heading, Paragraph, CodeBlock, ThematicBreak,
  *   BlockRule, BlockRuleContext, BlockParserOptions,
- *   NodeRange, Position,
+ *   NodeRange, Position, AnyNode
  * } from './types';
  */
 
@@ -555,6 +555,7 @@ const parseBlockTree = (source, rules) => {
 				if (result == null) continue;
 
 				const { node, remainder, remainderOffset } = result;
+				node.parent = stack[stack.length - 1].node;
 
 				if (node.type == 'list_item') {
 					wrapInList(stack, /** @type {ListItem} */ (node), ctx);

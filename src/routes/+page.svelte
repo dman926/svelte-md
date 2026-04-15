@@ -12,7 +12,7 @@
 </div>
 
 <h2>Parsed</h2>
-<pre>{JSON.stringify(parsed, null, 2)}</pre>
+<pre>{JSON.stringify(parsed, (key, value) => (key == 'parent' ? null : value), 2)}</pre>
 
 <h2>Raw</h2>
 <pre>{data.content}</pre>
