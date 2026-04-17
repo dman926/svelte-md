@@ -21,8 +21,8 @@
 </div>
 <form method="POST">
 	<div class="md-input">
-		<!-- TODO: does not accept a "name" prop nor has the capability to do so -->
 		<MarkdownEditor
+			name="content"
 			bind:value
 			{parser}
 			oninput={() => {

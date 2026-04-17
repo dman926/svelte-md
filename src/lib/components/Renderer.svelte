@@ -32,8 +32,9 @@
 	);
 
 	$effect(() => {
+		const p = parsed;
 		if (debug) {
-			console.log('Parsed AST:', parsed);
+			console.log('Parsed AST:', p);
 		}
 	});
 </script>
