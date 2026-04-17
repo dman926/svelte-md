@@ -234,6 +234,9 @@ const serializeBlock = (node, indent) => {
 		case 'document':
 			return node.children?.map((c) => serializeBlock(c, indent)).join('\n\n') ?? '';
 
+		case 'blank_line':
+			return '';
+
 		case 'blockquote': {
 			if (!node.children) return '';
 			const inner = node.children.map((c) => serializeBlock(c, '')).join('\n\n');

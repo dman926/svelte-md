@@ -75,6 +75,8 @@
 	<pre {...dataProps}><code>{node.value}</code></pre>
 {:else if node.type == 'thematic_break'}
 	<hr {...dataProps} />
+{:else if node.type == 'blank_line'}
+	<p {...dataProps}><br /></p>
 
 	<!-- Inline Nodes -->
 {:else if node.type == 'text'}

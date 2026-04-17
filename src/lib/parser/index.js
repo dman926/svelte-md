@@ -186,15 +186,14 @@ export const createParser = (options = {}) => {
 			const keepBefore = top.slice(0, firstAffIdx);
 			const keepAfter = top.slice(lastAffIdx + 1);
 
-			// Shift after-blocks by deltaLines (their absolute positions changed).
-			if (deltaLines != 0) {
-				const afterOffset =
-					computeOffset(newLines, reparseToLine + 1) -
-					computeOffset(
-						newLines.slice(0, newLines.length - deltaLines),
-						reparseToLine + 1 - deltaLines,
-					);
-				for (const b of keepAfter) shiftRanges(b, deltaLines, afterOffset);
+			// Shift after-blocks to their new absolute positions.
+			if (keepAfter.length > 0) {
+				const firstAfter = keepAfter[0];
+				const newFirstOffset = computeOffset(newLines, firstAfter.range.start.line + deltaLines);
+				const afterBytesDelta = newFirstOffset - firstAfter.range.start.offset;
+				if (deltaLines !== 0 || afterBytesDelta !== 0) {
+					for (const b of keepAfter) shiftRanges(b, deltaLines, afterBytesDelta);
+				}
 			}
 
 			return buildDoc([...keepBefore, ...sliceDoc.children, ...keepAfter], newSource.length);

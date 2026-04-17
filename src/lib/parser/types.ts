@@ -86,6 +86,10 @@ export interface ThematicBreak extends LeafBlock {
 	type: 'thematic_break';
 }
 
+export interface BlankLine extends LeafBlock {
+	type: 'blank_line';
+}
+
 export interface CustomBlockNode extends BaseBlock {
 	type: CustomNodeName;
 	children?: BlockNode[];
@@ -101,6 +105,7 @@ export type BlockNode =
 	| Paragraph
 	| CodeBlock
 	| ThematicBreak
+	| BlankLine
 	| CustomBlockNode;
 
 // ---------------------------------------------------------------------------

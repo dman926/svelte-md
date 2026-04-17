@@ -382,6 +382,12 @@ const makeListRule = () => ({
 		list.tight = !list.children.slice(0, -1).some((item) => /** @type {any} */ (item)._hadBlank);
 		for (const item of list.children) delete (/** @type {any} */ (item)._hadBlank);
 		delete list._lastContentIndent;
+
+		// Update the lists range end when all children are finalized
+		if (list.children.length > 0) {
+			const lastItem = list.children[list.children.length - 1];
+			list.range = { ...list.range, end: lastItem.range.end };
+		}
 	},
 });
 
@@ -546,6 +552,14 @@ const parseBlockTree = (source, rules) => {
 
 		// Blank lines after continuation — update offset and skip Phase 3.
 		if (BLANK_RE.test(line)) {
+			if (stack.length == 1) {
+				const blankEnd = lineIndex < lines.length - 1 ? offset + 1 : offset;
+				appendChild({
+					type: 'blank_line',
+					range: mkRange(lineIndex, offset, lineIndex, blankEnd),
+					raw: rawLine,
+				})
+			}
 			offset += rawLine.length + 1;
 			continue;
 		}
