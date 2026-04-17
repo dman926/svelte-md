@@ -87,6 +87,8 @@
 	<b {...dataProps}>{@render children()}</b>
 {:else if node.type == 'italic'}
 	<i {...dataProps}>{@render children()}</i>
+{:else if node.type == 'highlight'}
+	<mark {...dataProps}>{@render children()}</mark>
 {:else if node.type == 'inline_code'}
 	<code {...dataProps}>{node.value}</code>
 {:else if node.type == 'strike'}

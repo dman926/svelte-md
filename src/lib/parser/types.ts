@@ -146,6 +146,10 @@ export interface Italic extends ParentInline {
 	type: 'italic';
 }
 
+export interface Hightlight extends ParentInline {
+	type: 'highlight';
+}
+
 export interface InlineCode extends LeafInline {
 	type: 'inline_code';
 	value: string;
@@ -182,6 +186,7 @@ export type InlineNode =
 	| SoftBreak
 	| Bold
 	| Italic
+	| Hightlight
 	| InlineCode
 	| Strike
 	| LinkNode

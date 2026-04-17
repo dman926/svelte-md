@@ -169,6 +169,7 @@ const compileConfig = (options = {}) => {
 		strikeD: '~~',
 		bold: !disabled.has('bold'),
 		italic: !disabled.has('italic'),
+		highlight: !disabled.has('hightlight'),
 		link: !disabled.has('link'),
 		image: !disabled.has('image'),
 		softBreaks: options.softBreaks ?? 'space',
@@ -287,6 +288,24 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				flushText();
 				nodes.push({
 					type: 'strike',
+					children: scan(raw, innerStart, closeIdx, cfg, getRange),
+					range: getRange(i, closeIdx + dLen),
+					raw: raw.slice(i, closeIdx + dLen),
+				});
+				i = closeIdx + dLen;
+				continue;
+			}
+		}
+		
+		// Highlight
+		if (cfg.highlight && raw.startsWith('==', i)) {
+			const dLen = 2;
+			const innerStart = i + dLen;
+			const closeIdx = raw.indexOf('==', innerStart);
+			if (closeIdx != -1 && closeIdx < scanEnd) {
+				flushText();
+				nodes.push({
+					type: 'highlight',
 					children: scan(raw, innerStart, closeIdx, cfg, getRange),
 					range: getRange(i, closeIdx + dLen),
 					raw: raw.slice(i, closeIdx + dLen),
