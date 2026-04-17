@@ -2,8 +2,11 @@
 	export type CustomNodesSnippet = Snippet<
 		[
 			{
+				/** The Token that wants to render */
 				node: CustomBlockNode | CustomInlineNode;
+				/** The child nodes to render. Do not need to call for Leaf Tokens */
 				children: Snippet;
+				/** Must be spread on the rendered element for editing to work properly */
 				dataProps: {
 					'data-md-v': number;
 					'data-md-start-line': number;
@@ -70,11 +73,14 @@
 {:else if node.type == 'heading'}
 	<svelte:element this={`h${node.level}`} {...dataProps}>{@render children()}</svelte:element>
 {:else if node.type == 'paragraph'}
-	{#if node.parent?.type == 'list_item' && node.parent.parent?.type == 'list' && node.parent.parent.tight}
-		<span {...dataProps}>{@render children()}</span>
-	{:else}
-		<p {...dataProps}>{@render children()}</p>
-	{/if}
+	{@const tightListItemEl =
+		node.parent?.type == 'list_item' &&
+		node.parent.parent?.type == 'list' &&
+		node.parent.parent.tight &&
+		'span'}
+	<svelte:element this={tightListItemEl || 'p'} {...dataProps}>
+		{@render children()}
+	</svelte:element>
 {:else if node.type == 'code_block'}
 	<!--TODO: handle syntax highlighting  -->
 	<pre {...dataProps}><code>{node.value}</code></pre>
