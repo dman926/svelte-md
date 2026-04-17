@@ -159,8 +159,6 @@ export const createParser = (options = {}) => {
 			const reparseFromLine = top[firstAffIdx].range.start.line;
 
 			// ── Find last affected top-level block ───────────────────────────
-			// In the NEW source's line numbers, the edit extends to endLine + deltaLines.
-			const editEndInNew = endLine + Math.max(0, deltaLines);
 			let lastAffIdx = top.length - 1;
 			for (let i = top.length - 1; i >= firstAffIdx; i--) {
 				if (top[i].range.start.line <= endLine) {

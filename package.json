@@ -1,6 +1,6 @@
 {
 	"name": "@dman926/svelte-md",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"license": "LGPL-3.0-or-later",
 	"author": "Dennis James Stelmach <dj@dstelmach.com>",
 	"description": "A lightweight markdown renderer and editor for svelte",
