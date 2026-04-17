@@ -5,6 +5,7 @@
 				node: CustomBlockNode | CustomInlineNode;
 				children: Snippet;
 				dataProps: {
+					'data-md-v': number;
 					'data-md-start-line': number;
 					'data-md-start-offset': number;
 					'data-md-end-line': number;
@@ -22,13 +23,17 @@
 
 	const {
 		node,
+		version,
 		customNodes = customPassthrough,
 	}: {
 		node: AnyNode;
+		/** Just set to node.version. Wacky work-around to get data-props to update */
+		version: number;
 		customNodes?: CustomNodesSnippet;
 	} = $props();
 
 	const dataProps = $derived({
+		'data-md-v': version,
 		'data-md-start-line': node.range.start.line,
 		'data-md-start-offset': node.range.start.offset,
 		'data-md-end-line': node.range.end.line,
@@ -47,7 +52,7 @@
 
 {#snippet children()}
 	{#each node.children as child (child.id)}
-		<Self node={child} />
+		<Self node={child} version={node.version} />
 	{/each}
 {/snippet}
 

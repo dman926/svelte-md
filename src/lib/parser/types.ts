@@ -24,6 +24,7 @@ export interface TextChunk extends Position {
 
 export interface BaseBlock {
 	id: string;
+	version: number;
 	raw: string;
 	range: NodeRange;
 	parent?: AnyNode;
@@ -115,6 +116,7 @@ export type BlockNode =
 
 export interface BaseInline {
 	id: string;
+	version: number;
 	raw: string;
 	range: NodeRange;
 }

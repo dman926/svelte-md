@@ -85,6 +85,7 @@ export const thematicBreakRule = {
 		/** @type {ThematicBreak} */
 		const node = {
 			id: crypto.randomUUID(),
+			version: 0,
 			type: 'thematic_break',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
 			raw: line,
@@ -114,6 +115,7 @@ export const headingRule = {
 		/** @type {Heading} */
 		const node = {
 			id: crypto.randomUUID(),
+			version: 0,
 			type: 'heading',
 			level,
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
@@ -148,6 +150,7 @@ export const codeBlockRule = {
 		/** @type {CodeBlock & { _fenceLen: number }} */
 		const node = {
 			id: crypto.randomUUID(),
+			version: 0,
 			type: 'code_block',
 			lang,
 			fenceChar,
@@ -195,6 +198,7 @@ export const blockquoteRule = {
 		/** @type {Blockquote} */
 		const node = {
 			id: crypto.randomUUID(),
+			version: 0,
 			type: 'blockquote',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
 			raw: line,
@@ -234,6 +238,7 @@ export const listItemRule = {
 		/** @type {ListItem & { _indent: number, _contentIndent: number }} */
 		const node = {
 			id: crypto.randomUUID(),
+			version: 0,
 			type: 'list_item',
 			marker,
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
@@ -281,6 +286,7 @@ export const paragraphRule = {
 		/** @type {Paragraph} */
 		const node = {
 			id: crypto.randomUUID(),
+			version: 0,
 			type: 'paragraph',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
 			raw: line,
@@ -428,6 +434,7 @@ const wrapInList = (stack, itemNode, ctx) => {
 	/** @type {List} */
 	const listNode = {
 		id: crypto.randomUUID(),
+		version: 0,
 		type: 'list',
 		ordered: isOrdered,
 		start: isOrdered ? parseInt(itemNode.marker, 10) : 1,
@@ -480,6 +487,7 @@ const parseBlockTree = (source, rules) => {
 	/** @type {Document} */
 	const root = {
 		id: crypto.randomUUID(),
+		version: 0,
 		type: 'document',
 		range: mkRange(0, 0, 0, 0),
 		raw: source,
@@ -569,6 +577,7 @@ const parseBlockTree = (source, rules) => {
 				const blankEnd = lineIndex < lines.length - 1 ? offset + 1 : offset;
 				appendChild({
 					id: crypto.randomUUID(),
+					version: 0,
 					type: 'blank_line',
 					range: mkRange(lineIndex, offset, lineIndex, blankEnd),
 					raw: rawLine,

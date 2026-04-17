@@ -200,6 +200,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 		if (textBuf) {
 			nodes.push({
 				id: crypto.randomUUID(),
+				version: 0,
 				type: 'text',
 				value: textBuf,
 				range: getRange(textStart, i),
@@ -235,6 +236,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				flushText();
 				nodes.push({
 					id: crypto.randomUUID(),
+					version: 0,
 					type: 'soft_break',
 					range: getRange(i, i + 1),
 					raw: ch,
@@ -245,6 +247,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				flushText();
 				nodes.push({
 					id: crypto.randomUUID(),
+					version: 0,
 					type: 'text',
 					value: ' ',
 					range: getRange(i, i + 1),
@@ -262,6 +265,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				flushText();
 				nodes.push({
 					id: crypto.randomUUID(),
+					version: 0,
 					type: 'escape',
 					char: next,
 					range: getRange(i, i + 2),
@@ -285,6 +289,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 					value = value.slice(1, -1);
 				nodes.push({
 					id: crypto.randomUUID(),
+					version: 0,
 					type: 'inline_code',
 					value,
 					range: getRange(i, closeIdx + tickLen),
@@ -307,6 +312,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				flushText();
 				nodes.push({
 					id: crypto.randomUUID(),
+					version: 0,
 					type: 'strike',
 					children: scan(raw, innerStart, closeIdx, cfg, getRange),
 					range: getRange(i, closeIdx + dLen),
@@ -326,6 +332,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				flushText();
 				nodes.push({
 					id: crypto.randomUUID(),
+					version: 0,
 					type: 'highlight',
 					children: scan(raw, innerStart, closeIdx, cfg, getRange),
 					range: getRange(i, closeIdx + dLen),
@@ -360,6 +367,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				if (excess > 0)
 					nodes.push({
 						id: crypto.randomUUID(),
+						version: 0,
 						type: 'text',
 						value: dc.repeat(excess),
 						range: getRange(i, tokenStart),
@@ -367,6 +375,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 					});
 				nodes.push({
 					id: crypto.randomUUID(),
+					version: 0,
 					type: len == 2 ? 'bold' : 'italic',
 					children: scan(raw, innerStart, closeIdx, cfg, getRange),
 					range: getRange(tokenStart, closeIdx + len),
@@ -391,6 +400,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 					flushText();
 					nodes.push({
 						id: crypto.randomUUID(),
+						version: 0,
 						type: 'image',
 						href: raw.slice(pOpen, pClose),
 						alt: raw.slice(bOpen, bClose),
@@ -414,6 +424,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 					flushText();
 					nodes.push({
 						id: crypto.randomUUID(),
+						version: 0,
 						type: 'link',
 						href: raw.slice(pOpen, pClose),
 						children: scan(raw, bOpen, bClose, cfg, getRange),

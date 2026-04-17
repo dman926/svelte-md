@@ -32,11 +32,8 @@
 	);
 
 	$effect(() => {
-		const p = parsed;
-		if (debug) {
-			console.log('Parsed AST:', p);
-		}
+		if (debug) console.log('Parsed AST:', parsed);
 	});
 </script>
 
-<Token node={parsed} {customNodes} />
+<Token node={parsed} version={parsed.version} {customNodes} />
