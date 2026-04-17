@@ -234,7 +234,7 @@
 </script>
 
 {#if name}
-	<input type="hidden" {name} value={value} />
+	<input type="hidden" {name} {value} />
 {/if}
 <div
 	bind:this={editorEl}
