@@ -23,6 +23,8 @@ export interface TextChunk extends Position {
 // ---------------------------------------------------------------------------
 
 export interface BaseBlock {
+	id: string;
+	version: number;
 	raw: string;
 	range: NodeRange;
 	parent?: AnyNode;
@@ -86,6 +88,10 @@ export interface ThematicBreak extends LeafBlock {
 	type: 'thematic_break';
 }
 
+export interface BlankLine extends LeafBlock {
+	type: 'blank_line';
+}
+
 export interface CustomBlockNode extends BaseBlock {
 	type: CustomNodeName;
 	children?: BlockNode[];
@@ -101,6 +107,7 @@ export type BlockNode =
 	| Paragraph
 	| CodeBlock
 	| ThematicBreak
+	| BlankLine
 	| CustomBlockNode;
 
 // ---------------------------------------------------------------------------
@@ -108,6 +115,8 @@ export type BlockNode =
 // ---------------------------------------------------------------------------
 
 export interface BaseInline {
+	id: string;
+	version: number;
 	raw: string;
 	range: NodeRange;
 }
@@ -139,6 +148,10 @@ export interface Bold extends ParentInline {
 
 export interface Italic extends ParentInline {
 	type: 'italic';
+}
+
+export interface Hightlight extends ParentInline {
+	type: 'highlight';
 }
 
 export interface InlineCode extends LeafInline {
@@ -177,6 +190,7 @@ export type InlineNode =
 	| SoftBreak
 	| Bold
 	| Italic
+	| Hightlight
 	| InlineCode
 	| Strike
 	| LinkNode

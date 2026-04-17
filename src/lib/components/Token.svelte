@@ -2,9 +2,13 @@
 	export type CustomNodesSnippet = Snippet<
 		[
 			{
+				/** The Token that wants to render */
 				node: CustomBlockNode | CustomInlineNode;
+				/** The child nodes to render. Do not need to call for Leaf Tokens */
 				children: Snippet;
+				/** Must be spread on the rendered element for editing to work properly */
 				dataProps: {
+					'data-md-v': number;
 					'data-md-start-line': number;
 					'data-md-start-offset': number;
 					'data-md-end-line': number;
@@ -22,13 +26,17 @@
 
 	const {
 		node,
+		version,
 		customNodes = customPassthrough,
 	}: {
 		node: AnyNode;
+		/** Just set to node.version. Wacky work-around to get data-props to update */
+		version: number;
 		customNodes?: CustomNodesSnippet;
 	} = $props();
 
 	const dataProps = $derived({
+		'data-md-v': version,
 		'data-md-start-line': node.range.start.line,
 		'data-md-start-offset': node.range.start.offset,
 		'data-md-end-line': node.range.end.line,
@@ -46,8 +54,8 @@
 {/snippet}
 
 {#snippet children()}
-	{#each node.children as child, i (`${child.type}-${i}`)}
-		<Self node={child} />
+	{#each node.children as child (child.id)}
+		<Self node={child} version={node.version} />
 	{/each}
 {/snippet}
 
@@ -65,16 +73,21 @@
 {:else if node.type == 'heading'}
 	<svelte:element this={`h${node.level}`} {...dataProps}>{@render children()}</svelte:element>
 {:else if node.type == 'paragraph'}
-	{#if node.parent?.type == 'list_item' && node.parent.parent?.type == 'list' && node.parent.parent.tight}
-		<span {...dataProps}>{@render children()}</span>
-	{:else}
-		<p {...dataProps}>{@render children()}</p>
-	{/if}
+	{@const tightListItemEl =
+		node.parent?.type == 'list_item' &&
+		node.parent.parent?.type == 'list' &&
+		node.parent.parent.tight &&
+		'span'}
+	<svelte:element this={tightListItemEl || 'p'} {...dataProps}>
+		{@render children()}
+	</svelte:element>
 {:else if node.type == 'code_block'}
 	<!--TODO: handle syntax highlighting  -->
 	<pre {...dataProps}><code>{node.value}</code></pre>
 {:else if node.type == 'thematic_break'}
 	<hr {...dataProps} />
+{:else if node.type == 'blank_line'}
+	<p {...dataProps}><br /></p>
 
 	<!-- Inline Nodes -->
 {:else if node.type == 'text'}
@@ -85,6 +98,8 @@
 	<b {...dataProps}>{@render children()}</b>
 {:else if node.type == 'italic'}
 	<i {...dataProps}>{@render children()}</i>
+{:else if node.type == 'highlight'}
+	<mark {...dataProps}>{@render children()}</mark>
 {:else if node.type == 'inline_code'}
 	<code {...dataProps}>{node.value}</code>
 {:else if node.type == 'strike'}

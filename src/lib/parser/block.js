@@ -84,6 +84,8 @@ export const thematicBreakRule = {
 		if (!THEMATIC_RE.test(line)) return null;
 		/** @type {ThematicBreak} */
 		const node = {
+			id: crypto.randomUUID(),
+			version: 0,
 			type: 'thematic_break',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
 			raw: line,
@@ -112,6 +114,8 @@ export const headingRule = {
 		const chunk = { text, line: ctx.lineIndex, offset: ctx.lineOffset + level };
 		/** @type {Heading} */
 		const node = {
+			id: crypto.randomUUID(),
+			version: 0,
 			type: 'heading',
 			level,
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
@@ -145,6 +149,8 @@ export const codeBlockRule = {
 		if (fenceChar == '`' && lang.includes('`')) return null;
 		/** @type {CodeBlock & { _fenceLen: number }} */
 		const node = {
+			id: crypto.randomUUID(),
+			version: 0,
 			type: 'code_block',
 			lang,
 			fenceChar,
@@ -191,6 +197,8 @@ export const blockquoteRule = {
 		const consumed = line.length - stripped.length;
 		/** @type {Blockquote} */
 		const node = {
+			id: crypto.randomUUID(),
+			version: 0,
 			type: 'blockquote',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
 			raw: line,
@@ -229,6 +237,8 @@ export const listItemRule = {
 		const contentIndent = indent + marker.length + 1;
 		/** @type {ListItem & { _indent: number, _contentIndent: number }} */
 		const node = {
+			id: crypto.randomUUID(),
+			version: 0,
 			type: 'list_item',
 			marker,
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
@@ -275,6 +285,8 @@ export const paragraphRule = {
 		if (BLANK_RE.test(line)) return null;
 		/** @type {Paragraph} */
 		const node = {
+			id: crypto.randomUUID(),
+			version: 0,
 			type: 'paragraph',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
 			raw: line,
@@ -382,6 +394,12 @@ const makeListRule = () => ({
 		list.tight = !list.children.slice(0, -1).some((item) => /** @type {any} */ (item)._hadBlank);
 		for (const item of list.children) delete (/** @type {any} */ (item)._hadBlank);
 		delete list._lastContentIndent;
+
+		// Update the lists range end when all children are finalized
+		if (list.children.length > 0) {
+			const lastItem = list.children[list.children.length - 1];
+			list.range = { ...list.range, end: lastItem.range.end };
+		}
 	},
 });
 
@@ -415,6 +433,8 @@ const wrapInList = (stack, itemNode, ctx) => {
 	const isOrdered = /\d/.test(itemNode.marker);
 	/** @type {List} */
 	const listNode = {
+		id: crypto.randomUUID(),
+		version: 0,
 		type: 'list',
 		ordered: isOrdered,
 		start: isOrdered ? parseInt(itemNode.marker, 10) : 1,
@@ -465,7 +485,14 @@ const parseBlockTree = (source, rules) => {
 	let offset = 0;
 
 	/** @type {Document} */
-	const root = { type: 'document', range: mkRange(0, 0, 0, 0), raw: source, children: [] };
+	const root = {
+		id: crypto.randomUUID(),
+		version: 0,
+		type: 'document',
+		range: mkRange(0, 0, 0, 0),
+		raw: source,
+		children: [],
+	};
 
 	/** @type {StackEntry[]} */
 	const stack = [entry(root, documentRule, 0, 0)];
@@ -546,6 +573,16 @@ const parseBlockTree = (source, rules) => {
 
 		// Blank lines after continuation — update offset and skip Phase 3.
 		if (BLANK_RE.test(line)) {
+			if (stack.length == 1) {
+				const blankEnd = lineIndex < lines.length - 1 ? offset + 1 : offset;
+				appendChild({
+					id: crypto.randomUUID(),
+					version: 0,
+					type: 'blank_line',
+					range: mkRange(lineIndex, offset, lineIndex, blankEnd),
+					raw: rawLine,
+				});
+			}
 			offset += rawLine.length + 1;
 			continue;
 		}

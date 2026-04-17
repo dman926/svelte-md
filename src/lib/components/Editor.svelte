@@ -16,6 +16,7 @@
 		disabled,
 		readonly,
 		spellcheck,
+		name,
 		onchange,
 		oninput,
 		onsubmit,
@@ -32,6 +33,7 @@
 		disabled: boolean;
 		readonly: boolean;
 		spellcheck: boolean;
+		name: string;
 		onchange: (value: string) => void;
 		oninput: (value: string) => void;
 		onsubmit: (value: string) => void;
@@ -39,7 +41,7 @@
 		debug: boolean;
 	}> = $props();
 
-	let parsed = $state(untrack(() => parser.parse(value)));
+	let parsed = $state.raw(untrack(() => parser.parse(value)));
 	/** True while an IME composition is in progress */
 	let isComposing = $state(false);
 	/** True while the editor has focus */
@@ -51,16 +53,18 @@
 	// External value sync
 	// ---------------------------------------------------------------------------
 
+	let init = $state(false);
 	/**
-	 * When the `value` prop changes from outside while the editor is not focused,
+	 * When the `value` or `parser` prop changes from outside while the editor is not focused,
 	 * sync it to internal state. If the editor IS focused, we ignore external
 	 * changes to avoid fighting with the user's in-progress editing.
 	 */
 	$effect(() => {
 		const v = value;
-		if (untrack(() => !isFocused)) {
-			parsed = parser.parse(v);
-		}
+		const p = parser;
+		const i = untrack(() => init);
+		if (i && untrack(() => !isFocused)) parsed = p.parse(v);
+		else if (!i) init = true;
 	});
 
 	// ---------------------------------------------------------------------------
@@ -229,6 +233,9 @@
 	};
 </script>
 
+{#if name}
+	<input type="hidden" {name} {value} />
+{/if}
 <div
 	bind:this={editorEl}
 	class={className}

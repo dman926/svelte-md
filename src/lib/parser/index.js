@@ -159,8 +159,6 @@ export const createParser = (options = {}) => {
 			const reparseFromLine = top[firstAffIdx].range.start.line;
 
 			// ── Find last affected top-level block ───────────────────────────
-			// In the NEW source's line numbers, the edit extends to endLine + deltaLines.
-			const editEndInNew = endLine + Math.max(0, deltaLines);
 			let lastAffIdx = top.length - 1;
 			for (let i = top.length - 1; i >= firstAffIdx; i--) {
 				if (top[i].range.start.line <= endLine) {
@@ -186,15 +184,17 @@ export const createParser = (options = {}) => {
 			const keepBefore = top.slice(0, firstAffIdx);
 			const keepAfter = top.slice(lastAffIdx + 1);
 
-			// Shift after-blocks by deltaLines (their absolute positions changed).
-			if (deltaLines != 0) {
-				const afterOffset =
-					computeOffset(newLines, reparseToLine + 1) -
-					computeOffset(
-						newLines.slice(0, newLines.length - deltaLines),
-						reparseToLine + 1 - deltaLines,
-					);
-				for (const b of keepAfter) shiftRanges(b, deltaLines, afterOffset);
+			// Shift after-blocks to their new absolute positions.
+			if (keepAfter.length > 0) {
+				const firstAfter = keepAfter[0];
+				const newFirstOffset = computeOffset(newLines, firstAfter.range.start.line + deltaLines);
+				const afterBytesDelta = newFirstOffset - firstAfter.range.start.offset;
+				if (deltaLines !== 0 || afterBytesDelta !== 0) {
+					for (const b of keepAfter) {
+						shiftRanges(b, deltaLines, afterBytesDelta);
+						b.version++;
+					}
+				}
 			}
 
 			return buildDoc([...keepBefore, ...sliceDoc.children, ...keepAfter], newSource.length);
@@ -246,6 +246,8 @@ const shiftRangesInDoc = (nodes, deltaLines, absoluteStart) => {
  * @returns {Document}
  */
 const buildDoc = (children, sourceLength) => ({
+	id: crypto.randomUUID(),
+	version: 0,
 	type: 'document',
 	range: {
 		start: { line: 0, offset: 0 },
