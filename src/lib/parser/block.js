@@ -84,6 +84,7 @@ export const thematicBreakRule = {
 		if (!THEMATIC_RE.test(line)) return null;
 		/** @type {ThematicBreak} */
 		const node = {
+			id: crypto.randomUUID(),
 			type: 'thematic_break',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
 			raw: line,
@@ -112,6 +113,7 @@ export const headingRule = {
 		const chunk = { text, line: ctx.lineIndex, offset: ctx.lineOffset + level };
 		/** @type {Heading} */
 		const node = {
+			id: crypto.randomUUID(),
 			type: 'heading',
 			level,
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
@@ -145,6 +147,7 @@ export const codeBlockRule = {
 		if (fenceChar == '`' && lang.includes('`')) return null;
 		/** @type {CodeBlock & { _fenceLen: number }} */
 		const node = {
+			id: crypto.randomUUID(),
 			type: 'code_block',
 			lang,
 			fenceChar,
@@ -191,6 +194,7 @@ export const blockquoteRule = {
 		const consumed = line.length - stripped.length;
 		/** @type {Blockquote} */
 		const node = {
+			id: crypto.randomUUID(),
 			type: 'blockquote',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
 			raw: line,
@@ -229,6 +233,7 @@ export const listItemRule = {
 		const contentIndent = indent + marker.length + 1;
 		/** @type {ListItem & { _indent: number, _contentIndent: number }} */
 		const node = {
+			id: crypto.randomUUID(),
 			type: 'list_item',
 			marker,
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
@@ -275,6 +280,7 @@ export const paragraphRule = {
 		if (BLANK_RE.test(line)) return null;
 		/** @type {Paragraph} */
 		const node = {
+			id: crypto.randomUUID(),
 			type: 'paragraph',
 			range: mkRange(ctx.lineIndex, ctx.lineOffset, ctx.lineIndex, ctx.lineOffset + line.length),
 			raw: line,
@@ -421,6 +427,7 @@ const wrapInList = (stack, itemNode, ctx) => {
 	const isOrdered = /\d/.test(itemNode.marker);
 	/** @type {List} */
 	const listNode = {
+		id: crypto.randomUUID(),
 		type: 'list',
 		ordered: isOrdered,
 		start: isOrdered ? parseInt(itemNode.marker, 10) : 1,
@@ -471,7 +478,13 @@ const parseBlockTree = (source, rules) => {
 	let offset = 0;
 
 	/** @type {Document} */
-	const root = { type: 'document', range: mkRange(0, 0, 0, 0), raw: source, children: [] };
+	const root = {
+		id: crypto.randomUUID(),
+		type: 'document',
+		range: mkRange(0, 0, 0, 0),
+		raw: source,
+		children: [],
+	};
 
 	/** @type {StackEntry[]} */
 	const stack = [entry(root, documentRule, 0, 0)];
@@ -555,10 +568,11 @@ const parseBlockTree = (source, rules) => {
 			if (stack.length == 1) {
 				const blankEnd = lineIndex < lines.length - 1 ? offset + 1 : offset;
 				appendChild({
+					id: crypto.randomUUID(),
 					type: 'blank_line',
 					range: mkRange(lineIndex, offset, lineIndex, blankEnd),
 					raw: rawLine,
-				})
+				});
 			}
 			offset += rawLine.length + 1;
 			continue;

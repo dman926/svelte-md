@@ -41,7 +41,7 @@
 		debug: boolean;
 	}> = $props();
 
-	let parsed = $state(untrack(() => parser.parse(value)));
+	let parsed = $state.raw(untrack(() => parser.parse(value)));
 	/** True while an IME composition is in progress */
 	let isComposing = $state(false);
 	/** True while the editor has focus */

@@ -198,7 +198,13 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 
 	const flushText = () => {
 		if (textBuf) {
-			nodes.push({ type: 'text', value: textBuf, range: getRange(textStart, i), raw: textBuf });
+			nodes.push({
+				id: crypto.randomUUID(),
+				type: 'text',
+				value: textBuf,
+				range: getRange(textStart, i),
+				raw: textBuf,
+			});
 			textBuf = '';
 			textStart = -1;
 		}
@@ -227,12 +233,23 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 		if (ch == '\n') {
 			if (cfg.softBreaks == 'break') {
 				flushText();
-				nodes.push({ type: 'soft_break', range: getRange(i, i + 1), raw: ch });
+				nodes.push({
+					id: crypto.randomUUID(),
+					type: 'soft_break',
+					range: getRange(i, i + 1),
+					raw: ch,
+				});
 			} else {
 				// Collapse the newline to a single space character.
 				// Flush any pending text first so ranges stay accurate.
 				flushText();
-				nodes.push({ type: 'text', value: ' ', range: getRange(i, i + 1), raw: ch });
+				nodes.push({
+					id: crypto.randomUUID(),
+					type: 'text',
+					value: ' ',
+					range: getRange(i, i + 1),
+					raw: ch,
+				});
 			}
 			i++;
 			continue;
@@ -244,6 +261,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 			if (next && /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/.test(next)) {
 				flushText();
 				nodes.push({
+					id: crypto.randomUUID(),
 					type: 'escape',
 					char: next,
 					range: getRange(i, i + 2),
@@ -266,6 +284,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				if (value.length > 2 && value[0] == ' ' && value[value.length - 1] == ' ')
 					value = value.slice(1, -1);
 				nodes.push({
+					id: crypto.randomUUID(),
 					type: 'inline_code',
 					value,
 					range: getRange(i, closeIdx + tickLen),
@@ -287,6 +306,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 			if (closeIdx != -1 && closeIdx < scanEnd) {
 				flushText();
 				nodes.push({
+					id: crypto.randomUUID(),
 					type: 'strike',
 					children: scan(raw, innerStart, closeIdx, cfg, getRange),
 					range: getRange(i, closeIdx + dLen),
@@ -296,7 +316,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				continue;
 			}
 		}
-		
+
 		// Highlight
 		if (cfg.highlight && raw.startsWith('==', i)) {
 			const dLen = 2;
@@ -305,6 +325,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 			if (closeIdx != -1 && closeIdx < scanEnd) {
 				flushText();
 				nodes.push({
+					id: crypto.randomUUID(),
 					type: 'highlight',
 					children: scan(raw, innerStart, closeIdx, cfg, getRange),
 					range: getRange(i, closeIdx + dLen),
@@ -338,12 +359,14 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				const innerStart = tokenStart + len;
 				if (excess > 0)
 					nodes.push({
+						id: crypto.randomUUID(),
 						type: 'text',
 						value: dc.repeat(excess),
 						range: getRange(i, tokenStart),
 						raw: raw.slice(i, tokenStart),
 					});
 				nodes.push({
+					id: crypto.randomUUID(),
 					type: len == 2 ? 'bold' : 'italic',
 					children: scan(raw, innerStart, closeIdx, cfg, getRange),
 					range: getRange(tokenStart, closeIdx + len),
@@ -367,6 +390,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				if (pClose != -1) {
 					flushText();
 					nodes.push({
+						id: crypto.randomUUID(),
 						type: 'image',
 						href: raw.slice(pOpen, pClose),
 						alt: raw.slice(bOpen, bClose),
@@ -389,6 +413,7 @@ const scan = (raw, scanStart, scanEnd, cfg, getRange) => {
 				if (pClose != -1) {
 					flushText();
 					nodes.push({
+						id: crypto.randomUUID(),
 						type: 'link',
 						href: raw.slice(pOpen, pClose),
 						children: scan(raw, bOpen, bClose, cfg, getRange),

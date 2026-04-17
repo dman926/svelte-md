@@ -46,7 +46,7 @@
 {/snippet}
 
 {#snippet children()}
-	{#each node.children as child, i (`${child.type}-${i}`)}
+	{#each node.children as child (child.id)}
 		<Self node={child} />
 	{/each}
 {/snippet}

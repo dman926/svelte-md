@@ -245,6 +245,7 @@ const shiftRangesInDoc = (nodes, deltaLines, absoluteStart) => {
  * @returns {Document}
  */
 const buildDoc = (children, sourceLength) => ({
+	id: crypto.randomUUID(),
 	type: 'document',
 	range: {
 		start: { line: 0, offset: 0 },
