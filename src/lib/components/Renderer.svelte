@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { defaultParser, type Parser, type Document } from '$lib/parser';
+	import { serializeJSON } from '$lib/parser/utils';
 	import Token, { type CustomNodesSnippet } from './Token.svelte';
 
 	const {
@@ -32,7 +33,7 @@
 	);
 
 	$effect(() => {
-		if (debug) console.log('Parsed AST:', parsed);
+		if (debug) console.log('Parsed AST:', serializeJSON(parsed));
 	});
 </script>
 

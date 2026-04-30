@@ -23,6 +23,7 @@
 	<div class="md-input">
 		<MarkdownEditor
 			name="content"
+			class="md-editor"
 			bind:value
 			{parser}
 			oninput={() => {
@@ -73,5 +74,10 @@
 		border-radius: 1em;
 		padding: 0.25rem 0.5rem;
 		white-space: pre-wrap;
+	}
+
+	/* Not really sure the best way to handle the style for this, but the outline covers the cursor when it's at the edges */
+	:global(.md-editor:focus-visible) {
+		outline: none;
 	}
 </style>

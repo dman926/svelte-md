@@ -1,5 +1,3 @@
-// parser/utils.js
-
 /**
  * Utility functions for working with the markdown AST.
  *
@@ -14,6 +12,23 @@
  *   ListItem, CodeBlock, Bold, Italic, Strike, LinkNode, ParentBlock, ParentInline
  * } from './types';
  */
+
+/**
+ * Helper to find a node by its ID in the AST.
+ * @param {AnyNode} node
+ * @param {string} id
+ * @returns {AnyNode | null}
+ */
+export const findNodeById = (node, id) => {
+	if (node.id === id) return node;
+	if (node.children) {
+		for (const child of node.children) {
+			const found = findNodeById(child, id);
+			if (found) return found;
+		}
+	}
+	return null;
+};
 
 // ---------------------------------------------------------------------------
 // Type Guards (The magic that removes `any` casts)
@@ -205,6 +220,18 @@ const findInlineNodeAt = (node, offset) => {
 	}
 	return node;
 };
+
+// ---------------------------------------------------------------------------
+// serialize — AST → JSON
+// ---------------------------------------------------------------------------
+
+/**
+ * Make a Document JSON serializable (such as for logging purposes)
+ * @param {Document} document
+ * @returns {Object}
+ */
+export const serializeJSON = (document) =>
+	JSON.parse(JSON.stringify(document, (key, value) => (key == 'parent' ? null : value), 2));
 
 // ---------------------------------------------------------------------------
 // serialize — AST → markdown string
