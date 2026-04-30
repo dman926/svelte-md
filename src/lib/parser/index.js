@@ -189,7 +189,7 @@ export const createParser = (options = {}) => {
 				const firstAfter = keepAfter[0];
 				const newFirstOffset = computeOffset(newLines, firstAfter.range.start.line + deltaLines);
 				const afterBytesDelta = newFirstOffset - firstAfter.range.start.offset;
-				if (deltaLines !== 0 || afterBytesDelta !== 0) {
+				if (deltaLines != 0 || afterBytesDelta != 0) {
 					for (const b of keepAfter) {
 						shiftRanges(b, deltaLines, afterBytesDelta);
 						b.version++;

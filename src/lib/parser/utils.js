@@ -20,7 +20,7 @@
  * @returns {AnyNode | null}
  */
 export const findNodeById = (node, id) => {
-	if (node.id === id) return node;
+	if (node.id == id) return node;
 	if (node.children) {
 		for (const child of node.children) {
 			const found = findNodeById(child, id);

@@ -122,7 +122,7 @@ export function restoreSelection(editorEl, selection, doc) {
 			}
 			current += len;
 		}
-		
+
 		const fallbackWalker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
 		/** @type {Node | null} */
 		let lastTextNode = null;
