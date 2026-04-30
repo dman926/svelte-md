@@ -47,7 +47,7 @@ import { isParentBlock } from './utils';
 // ---------------------------------------------------------------------------
 
 const BLANK_RE = /^\s*$/;
-const HEADING_RE = /^(#{1,6})([ \t].*|$)/;
+const HEADING_RE = /^(#{1,6}\s)(.*)/;
 const THEMATIC_RE = /^[ \t]{0,3}([-*_])(?:\s*\1){2,}\s*$/;
 const BLOCKQUOTE_RE = /^[ \t]{0,3}>/;
 const UL_RE = /^([ \t]*)([-*+])(?:[ \t])(.*)/;
@@ -109,9 +109,9 @@ export const headingRule = {
 	tryStart(line, ctx) {
 		const m = line.match(HEADING_RE);
 		if (!m) return null;
-		const level = m[1].length;
+		const level = m[1].length - 1;
 		const text = m[2];
-		const chunk = { text, line: ctx.lineIndex, offset: ctx.lineOffset + level };
+		const chunk = { text, line: ctx.lineIndex, offset: ctx.lineOffset + m[1].length };
 		/** @type {Heading} */
 		const node = {
 			id: crypto.randomUUID(),

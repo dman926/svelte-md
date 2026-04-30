@@ -8,6 +8,7 @@
 				children: Snippet;
 				/** Must be spread on the rendered element for editing to work properly */
 				dataProps: {
+					'data-md-id': string;
 					'data-md-v': number;
 					'data-md-start-line': number;
 					'data-md-start-offset': number;
@@ -36,6 +37,7 @@
 	} = $props();
 
 	const dataProps = $derived({
+		'data-md-id': node.id,
 		'data-md-v': version,
 		'data-md-start-line': node.range.start.line,
 		'data-md-start-offset': node.range.start.offset,
@@ -54,9 +56,13 @@
 {/snippet}
 
 {#snippet children()}
-	{#each node.children as child (child.id)}
-		<Self node={child} version={node.version} />
-	{/each}
+	{#if node.children?.length}
+		{#each node.children as child (child.id)}
+			<Self node={child} version={node.version} />
+		{/each}
+	{:else}
+		<br />
+	{/if}
 {/snippet}
 
 <!-- Block Nodes -->

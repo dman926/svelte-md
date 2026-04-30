@@ -2,6 +2,8 @@
  * @import { AnyNode } from '$lib/parser';
  */
 
+import { findNodeById } from '$lib/parser/utils';
+
 /**
  * @typedef {Object} RawSelection
  * @property {number} anchor
@@ -12,49 +14,69 @@
 /**
  * Translates a DOM Selection into absolute offsets in the source string.
  * @param {Element} editorEl
+ * @param {AnyNode} doc
  * @returns {RawSelection | null}
  */
-export function captureSelection(editorEl) {
+export function captureSelection(editorEl, doc) {
 	const sel = window.getSelection();
 	if (!(sel && sel.anchorNode && editorEl.contains(sel.anchorNode))) return null;
 
-	/** @param {Node} node @param {number} domOffset */
-	const getOffset = (node, domOffset) => {
-		// 1. Get the nearest element to the node
+	/** @param {Node} domNode @param {number} domOffset */
+	const getOffset = (domNode, domOffset) => {
 		const el =
-			node.nodeType == Node.ELEMENT_NODE ? /** @type {Element} */ (node) : node.parentElement;
-
-		// 2. Find the closest element that has our offset metadata
-		const container = el?.closest('[data-md-start-offset]');
+			domNode.nodeType == Node.ELEMENT_NODE
+				? /** @type {Element} */ (domNode)
+				: domNode.parentElement;
+		const container = el?.closest('[data-md-id]');
 		if (!container) return 0;
 
-		const baseOffset = parseInt(container.getAttribute('data-md-start-offset') || '0', 10);
+		const astNode = findNodeById(doc, container.getAttribute('data-md-id') ?? '');
 
-		// 3. If the selection is on the element itself (e.g., between spans),
-		// the domOffset is the index of the child node.
-		if (node.nodeType == Node.ELEMENT_NODE) {
+		// Fallback if ID is missing (shouldn't happen with our updated Token.svelte)
+		if (!astNode) {
+			return Number.parseInt(container.getAttribute('data-md-start-offset') || '0', 10);
+		}
+
+		// Check for an explicit override (useful if you ever have custom leaf nodes that hide syntax)
+		const attrOffset = container.getAttribute('data-md-content-offset');
+		let baseOffset;
+
+		if (attrOffset != null) {
+			baseOffset = Number.parseInt(attrOffset, 10);
+		} else if (astNode.children) {
+			// Parent nodes: content starts at the first child, or the end of the node if it's empty.
+			baseOffset = astNode.children.length
+				? astNode.children[0].range.start.offset
+				: astNode.range.end.offset;
+		} else {
+			// Leaf nodes map 1:1 from their start offset.
+			baseOffset = astNode.range.start.offset;
+		}
+
+		if (domNode.nodeType == Node.TEXT_NODE) {
+			let textOffset = 0;
+			const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+			while (walker.nextNode()) {
+				if (walker.currentNode == domNode) break;
+				textOffset += walker.currentNode.textContent?.length ?? 0;
+			}
+			return baseOffset + textOffset + domOffset;
+		} else {
 			let current = 0;
-			for (let i = 0; i < domOffset && i < node.childNodes.length; i++) {
-				current += node.childNodes[i].textContent?.length ?? 0;
+			for (let i = 0; i < domOffset && i < domNode.childNodes.length; i++) {
+				let n = domNode.childNodes[i];
+				if (n instanceof Comment) continue;
+				current += n.textContent?.length ?? 0;
 			}
 			return baseOffset + current;
 		}
-
-		// 4. If the selection is in a text node, sum up preceding text in the container
-		let textOffset = 0;
-		const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-		while (walker.nextNode()) {
-			if (walker.currentNode == node) break;
-			textOffset += walker.currentNode.textContent?.length ?? 0;
-		}
-
-		return baseOffset + textOffset + domOffset;
 	};
 
 	const anchor = getOffset(sel.anchorNode, sel.anchorOffset);
+	const focus = sel.focusNode ? getOffset(sel.focusNode, sel.focusOffset) : anchor;
 	return {
 		anchor,
-		focus: sel.focusNode ? getOffset(sel.focusNode, sel.focusOffset) : anchor,
+		focus,
 		isCollapsed: sel.isCollapsed,
 	};
 }
@@ -70,16 +92,26 @@ export function restoreSelection(editorEl, selection, doc) {
 	if (!domSel || !selection) return;
 
 	const resolve = (/** @type {number} */ targetOffset) => {
-		// 1. Find the deepest node in the AST containing this offset
 		const node = findDeepestNodeAtOffset(doc, targetOffset);
 		if (!node) return null;
 
-		// 2. Find the DOM element for that node
-		const el = editorEl.querySelector(`[data-md-start-offset="${node.range.start.offset}"]`);
+		// 1. Query strictly by the AST node's unique ID
+		const el = editorEl.querySelector(`[data-md-id="${node.id}"]`);
 		if (!el) return null;
 
-		// 3. Map the remaining offset to a text node inside that element
-		const localTarget = targetOffset - node.range.start.offset;
+		// 2. Resolve structural base offset dynamically
+		const attrOffset = el.getAttribute('data-md-content-offset');
+		let domBase;
+
+		if (attrOffset != null) {
+			domBase = Number.parseInt(attrOffset, 10);
+		} else if (node.children) {
+			domBase = node.children.length ? node.children[0].range.start.offset : node.range.end.offset;
+		} else {
+			domBase = node.range.start.offset;
+		}
+
+		const localTarget = targetOffset - domBase;
 		let current = 0;
 		const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
 
@@ -90,7 +122,7 @@ export function restoreSelection(editorEl, selection, doc) {
 			}
 			current += len;
 		}
-		// Fallback: place at the very end of the element's last text node
+
 		const fallbackWalker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
 		/** @type {Node | null} */
 		let lastTextNode = null;
@@ -133,7 +165,7 @@ function findDeepestNodeAtOffset(node, offset) {
 		}
 		// Pass 2: exact end-boundary match (cursor at trailing edge of last content)
 		for (const child of node.children) {
-			if (offset === child.range.end.offset) {
+			if (offset == child.range.end.offset) {
 				return findDeepestNodeAtOffset(child, offset);
 			}
 		}

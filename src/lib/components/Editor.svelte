@@ -71,6 +71,7 @@
 	// Helpers
 	// ---------------------------------------------------------------------------
 
+	/** @returns The new offset*/
 	const applyEdit = (
 		cursor: RawSelection,
 		insertText: string,
@@ -129,7 +130,7 @@
 	const handleBeforeInput: EventHandler<InputEvent, HTMLDivElement> = (e) => {
 		if (disabled || readonly || isComposing || !editorEl) return;
 
-		savedCursor = captureSelection(editorEl);
+		savedCursor = captureSelection(editorEl, parsed);
 		if (!savedCursor) return;
 
 		switch (e.inputType) {
@@ -168,7 +169,7 @@
 		const newRaw = editorEl.innerText; // Simple serialization
 		if (newRaw == value) return;
 
-		const cursor = captureSelection(editorEl);
+		const cursor = captureSelection(editorEl, parsed);
 		value = newRaw;
 		parsed = parser.parse(value); // Full re-parse as fallback
 		oninput?.(value);
@@ -179,7 +180,7 @@
 
 	const handleCompositionStart = () => {
 		isComposing = true;
-		if (editorEl) savedCursor = captureSelection(editorEl);
+		if (editorEl) savedCursor = captureSelection(editorEl, parsed);
 	};
 
 	const handleCompositionEnd = async () => {
@@ -195,7 +196,7 @@
 		await tick();
 		if (editorEl && savedCursor) {
 			// Restore to a calculated position or re-capture
-			const current = captureSelection(editorEl);
+			const current = captureSelection(editorEl, parsed);
 			if (current) restoreSelection(editorEl, current, parsed);
 		}
 	};
@@ -228,7 +229,7 @@
 		const text = e.clipboardData?.getData('text/plain');
 		if (!text) return;
 
-		const cursor = captureSelection(editorEl);
+		const cursor = captureSelection(editorEl, parsed);
 		if (cursor) applyEditAndRestore(cursor, text);
 	};
 </script>
