@@ -16,6 +16,7 @@
 		disabled,
 		readonly,
 		spellcheck,
+		ariaLabel,
 		name,
 		onchange,
 		oninput,
@@ -33,6 +34,7 @@
 		disabled: boolean;
 		readonly: boolean;
 		spellcheck: boolean;
+		ariaLabel: string;
 		name: string;
 		onchange: (value: string) => void;
 		oninput: (value: string) => void;
@@ -71,11 +73,25 @@
 	// Helpers
 	// ---------------------------------------------------------------------------
 
+	const findWordBoundaryBackward = (text: string, pos: number): number => {
+		let i = pos;
+		while (i > 0 && /\s/.test(text[i - 1])) i--;
+		while (i > 0 && /\S/.test(text[i - 1])) i--;
+		return i;
+	};
+
+	const findWordBoundaryForward = (text: string, pos: number): number => {
+		let i = pos;
+		while (i < text.length && /\s/.test(text[i])) i++;
+		while (i < text.length && /\S/.test(text[i])) i++;
+		return i;
+	};
+
 	/** @returns The new offset*/
 	const applyEdit = (
 		cursor: RawSelection,
 		insertText: string,
-		deleteDir: 'none' | 'backward' | 'forward' = 'none',
+		deleteDir: 'none' | 'backward' | 'forward' | 'wordBackward' | 'wordForward' = 'none',
 	) => {
 		let start = Math.min(cursor.anchor, cursor.focus);
 		let end = Math.max(cursor.anchor, cursor.focus);
@@ -83,6 +99,8 @@
 		if (start == end) {
 			if (deleteDir == 'backward' && start > 0) start -= 1;
 			else if (deleteDir == 'forward' && end < value.length) end += 1;
+			else if (deleteDir == 'wordBackward') start = findWordBoundaryBackward(value, start);
+			else if (deleteDir == 'wordForward') end = findWordBoundaryForward(value, end);
 		}
 
 		const nextSource = value.slice(0, start) + insertText + value.slice(end);
@@ -110,7 +128,7 @@
 	const applyEditAndRestore = async (
 		cursor: RawSelection,
 		insertText: string,
-		deleteDir: 'none' | 'backward' | 'forward' = 'none',
+		deleteDir: 'none' | 'backward' | 'forward' | 'wordBackward' | 'wordForward' = 'none',
 	) => {
 		const newOffset = applyEdit(cursor, insertText, deleteDir);
 		await tick();
@@ -143,19 +161,20 @@
 			case 'insertParagraph':
 			case 'insertLineBreak':
 				e.preventDefault();
+				if (submitOnEnter) break;
 				applyEditAndRestore(savedCursor, '\n');
 				break;
 
 			case 'deleteContentBackward':
 			case 'deleteWordBackward':
 				e.preventDefault();
-				applyEditAndRestore(savedCursor, '', 'backward');
+				applyEditAndRestore(savedCursor, '', 'wordBackward');
 				break;
 
 			case 'deleteContentForward':
 			case 'deleteWordForward':
 				e.preventDefault();
-				applyEditAndRestore(savedCursor, '', 'forward');
+				applyEditAndRestore(savedCursor, '', 'wordForward');
 				break;
 		}
 	};
@@ -166,7 +185,7 @@
 		// Fallback for things like Spellcheck or Drag & Drop that mutate DOM directly
 		// We re-parse fully if the DOM gets out of sync because incremental
 		// update requires precise EditRanges which browser-mutated DOM doesn't provide easily.
-		const newRaw = editorEl.innerText; // Simple serialization
+		const newRaw = editorEl.innerText.replace(/\n$/, ''); // Simple serialization
 		if (newRaw == value) return;
 
 		const cursor = captureSelection(editorEl, parsed);
@@ -246,8 +265,9 @@
 	{spellcheck}
 	autocapitalize="off"
 	data-placeholder={placeholder || undefined}
+	data-empty={value.length == 0 || undefined}
 	aria-multiline="true"
-	aria-label={placeholder}
+	aria-label={ariaLabel || placeholder}
 	aria-disabled={disabled}
 	aria-readonly={readonly}
 	onbeforeinput={handleBeforeInput}
@@ -261,3 +281,12 @@
 >
 	<Renderer {parsed} {debug} {customNodes} />
 </div>
+
+<style>
+	div[data-placeholder][data-empty]::before {
+		content: attr(data-placeholder);
+		float: left;
+		height: 0;
+		pointer-events: none;
+	}
+</style>
