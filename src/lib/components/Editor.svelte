@@ -22,6 +22,7 @@
 		oninput,
 		onsubmit,
 		class: className,
+		placeholderClass,
 		debug,
 	}: Partial<{
 		/** The editor root element */
@@ -40,6 +41,7 @@
 		oninput: (value: string) => void;
 		onsubmit: (value: string) => void;
 		class: string;
+		placeholderClass: string;
 		debug: boolean;
 	}> = $props();
 
@@ -166,12 +168,18 @@
 				break;
 
 			case 'deleteContentBackward':
+				e.preventDefault();
+				applyEditAndRestore(savedCursor, '', 'backward');
+				break;
 			case 'deleteWordBackward':
 				e.preventDefault();
 				applyEditAndRestore(savedCursor, '', 'wordBackward');
 				break;
 
 			case 'deleteContentForward':
+				e.preventDefault();
+				applyEditAndRestore(savedCursor, '', 'forward');
+				break;
 			case 'deleteWordForward':
 				e.preventDefault();
 				applyEditAndRestore(savedCursor, '', 'wordForward');
@@ -253,40 +261,49 @@
 	};
 </script>
 
-{#if name}
-	<input type="hidden" {name} {value} />
-{/if}
-<div
-	bind:this={editorEl}
-	class={className}
-	role="textbox"
-	tabindex="0"
-	contenteditable={!(disabled || readonly)}
-	{spellcheck}
-	autocapitalize="off"
-	data-placeholder={placeholder || undefined}
-	data-empty={value.length == 0 || undefined}
-	aria-multiline="true"
-	aria-label={ariaLabel || placeholder}
-	aria-disabled={disabled}
-	aria-readonly={readonly}
-	onbeforeinput={handleBeforeInput}
-	oninput={handleInput}
-	oncompositionstart={handleCompositionStart}
-	oncompositionend={handleCompositionEnd}
-	onkeydown={handleKeydown}
-	onfocus={handleFocus}
-	onblur={handleBlur}
-	onpaste={handlePaste}
->
-	<Renderer {parsed} {debug} {customNodes} />
+<div class="md-editor-root">
+	{#if name}
+		<input type="hidden" {name} {value} />
+	{/if}
+	<div
+		bind:this={editorEl}
+		class={className}
+		role="textbox"
+		tabindex="0"
+		contenteditable={!(disabled || readonly)}
+		{spellcheck}
+		autocapitalize="off"
+		aria-multiline="true"
+		aria-label={ariaLabel || placeholder}
+		aria-disabled={disabled}
+		aria-readonly={readonly}
+		onbeforeinput={handleBeforeInput}
+		oninput={handleInput}
+		oncompositionstart={handleCompositionStart}
+		oncompositionend={handleCompositionEnd}
+		onkeydown={handleKeydown}
+		onfocus={handleFocus}
+		onblur={handleBlur}
+		onpaste={handlePaste}
+	>
+		<Renderer {parsed} {debug} {customNodes} />
+	</div>
+	{#if value.length == 0 && placeholder}
+		<span class={['md-placeholder', placeholderClass].filter(Boolean).join(' ')} aria-hidden="true">
+			{placeholder}
+		</span>
+	{/if}
 </div>
 
 <style>
-	div[data-placeholder][data-empty]::before {
-		content: attr(data-placeholder);
-		float: left;
-		height: 0;
+	.md-editor-root {
+		position: relative;
+	}
+	.md-placeholder {
+		position: absolute;
+		inset: 0;
 		pointer-events: none;
+		overflow: hidden;
+		white-space: pre-wrap;
 	}
 </style>
