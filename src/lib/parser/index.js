@@ -159,45 +159,47 @@ export const createParser = (options = {}) => {
 			const reparseFromLine = top[firstAffIdx].range.start.line;
 
 			// ── Find last affected top-level block ───────────────────────────
-			let lastAffIdx = top.length - 1;
-			for (let i = top.length - 1; i >= firstAffIdx; i--) {
-				if (top[i].range.start.line <= endLine) {
+			let lastAffIdx = firstAffIdx; // Start from firstAffIdx, not the end!
+			for (let i = firstAffIdx; i < top.length; i++) {
+				if (top[i].range.start.line <= endLine || top[i].range.end.line >= endLine) {
 					lastAffIdx = i;
+				} else {
 					break;
 				}
 			}
-			const reparseToLine = Math.min(
-				newLines.length - 1,
-				top[lastAffIdx].range.end.line + Math.max(0, deltaLines),
-			);
+			const reparseToLine = Math.max(endLine, top[lastAffIdx].range.end.line + deltaLines);
 
 			// ── Re-parse the affected slice ──────────────────────────────────
 			const sliceSource = newLines.slice(reparseFromLine, reparseToLine + 1).join('\n');
 			const sliceDoc = blockParser.parseBlocks(sliceSource);
 			inlineParser.populateInline(sliceDoc);
-
-			// Shift new-middle blocks to their absolute line numbers.
-			const sliceOffset = computeOffset(newLines, reparseFromLine);
-			shiftRangesInDoc(sliceDoc.children, reparseFromLine, sliceOffset);
+			shiftRangesInDoc(
+				sliceDoc.children,
+				reparseFromLine,
+				computeOffset(newLines, reparseFromLine),
+			);
 
 			// ── Build before/after unchanged block lists ─────────────────────
 			const keepBefore = top.slice(0, firstAffIdx);
 			const keepAfter = top.slice(lastAffIdx + 1);
 
+			const newNodes = [...keepBefore, ...sliceDoc.children, ...keepAfter];
+
 			// Shift after-blocks to their new absolute positions.
 			if (keepAfter.length > 0) {
-				const firstAfter = keepAfter[0];
-				const newFirstOffset = computeOffset(newLines, firstAfter.range.start.line + deltaLines);
-				const afterBytesDelta = newFirstOffset - firstAfter.range.start.offset;
-				if (deltaLines != 0 || afterBytesDelta != 0) {
+				const oldStartLine = top[lastAffIdx + 1].range.start.line;
+				const newStartLine = edit.endLine + edit.deltaLines + 1;
+				const lineShift = newStartLine - oldStartLine;
+
+				if (lineShift != 0) {
 					for (const b of keepAfter) {
-						shiftRanges(b, deltaLines, afterBytesDelta);
+						shiftRanges(b, lineShift, 0);
 						b.version++;
 					}
 				}
 			}
 
-			return buildDoc([...keepBefore, ...sliceDoc.children, ...keepAfter], newSource.length);
+			return buildDoc(newNodes, newSource.length);
 		},
 
 		get options() {
