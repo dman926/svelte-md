@@ -97,3 +97,25 @@ pnpm add @dman926/svelte-md
 <!-- Optionally provide a parser just like with Renderer -->
 <Editor bind:value={sourceString} {onsubmit} placeholder="Type markdown..." />
 ```
+
+### Optional syntax highlighting
+
+Svelte-md is agnostic to the syntax highlighter you wish to use. The demo uses [Shiki](https://shiki.matsu.io/) to demonstrate.
+
+```svelte
+<script>
+	import { Renderer, type CodeHighlighter } from '@dman926/svelte-md';
+	import { codeToHtml } from 'shiki';
+
+	const value = $state(['```python', 'print("Hello World")', '```'].join('\n'))
+
+	/** @returns {string | Promise<string>} */
+	const codeHighlighter: CodeHighlighter = (code, lang) =>
+		// Use any syntax highlighter you wish to use
+		codeToHtml(code, { lang: lang || 'text', theme: 'min-light' });
+</script>
+
+<Renderer {value} {codeHighlighter}>
+```
+
+Just be sure to be very careful and trust whichever highlighter you use. The syntax highlighting is the only section of the rendering process that renders raw HTML, which is a scary thing.

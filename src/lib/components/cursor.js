@@ -67,6 +67,7 @@ export function captureSelection(editorEl, doc) {
 				let n = domNode.childNodes[i];
 				if (n instanceof Comment) continue;
 				current += n.textContent?.length ?? 0;
+				if (n.nodeName == 'BR') current += 1;
 			}
 			return baseOffset + current;
 		}
@@ -130,7 +131,7 @@ export function restoreSelection(editorEl, selection, doc) {
 		if (lastTextNode) {
 			return { node: lastTextNode, offset: lastTextNode.textContent?.length ?? 0 };
 		}
-		return { node: el, offset: 0 };
+		return { node: el, offset: Math.min(localTarget, el.childNodes.length) };
 	};
 
 	const anchor = resolve(selection.anchor);
@@ -156,16 +157,11 @@ export function restoreSelection(editorEl, selection, doc) {
  */
 function findDeepestNodeAtOffset(node, offset) {
 	if (node.children) {
-		// Pass 1: strict half-open interval [start, end)
-		for (const child of node.children) {
-			const { start, end } = child.range;
-			if (offset >= start.offset && offset < end.offset) {
-				return findDeepestNodeAtOffset(child, offset);
-			}
-		}
-		// Pass 2: exact end-boundary match (cursor at trailing edge of last content)
-		for (const child of node.children) {
-			if (offset == child.range.end.offset) {
+		// Reverse iteration prioritizes the newly created node when offsets share a boundary.
+		// e.g., if Node A ends at 6 and Node B starts at 6, we want Node B so the cursor drops down.
+		for (let i = node.children.length - 1; i >= 0; i--) {
+			const child = node.children[i];
+			if (offset >= child.range.start.offset && offset <= child.range.end.offset) {
 				return findDeepestNodeAtOffset(child, offset);
 			}
 		}

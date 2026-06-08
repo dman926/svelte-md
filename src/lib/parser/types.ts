@@ -1,3 +1,5 @@
+export type CodeHighlighter = (code: string, lang: string) => string | Promise<string>;
+
 // ---------------------------------------------------------------------------
 // Source positions
 // ---------------------------------------------------------------------------

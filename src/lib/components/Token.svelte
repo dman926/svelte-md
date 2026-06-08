@@ -22,18 +22,21 @@
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { AnyNode, CustomBlockNode, CustomInlineNode } from '$lib/parser';
+	import type { AnyNode, CodeHighlighter, CustomBlockNode, CustomInlineNode } from '$lib/parser';
 	import Self from './Token.svelte';
+	import CodeHighlight from './CodeHighlight.svelte';
 
 	const {
 		node,
 		version,
 		customNodes = customPassthrough,
+		codeHighlighter,
 	}: {
 		node: AnyNode;
 		/** Just set to node.version. Wacky work-around to get data-props to update */
 		version: number;
 		customNodes?: CustomNodesSnippet;
+		codeHighlighter?: CodeHighlighter;
 	} = $props();
 
 	const dataProps = $derived({
@@ -58,7 +61,7 @@
 {#snippet children()}
 	{#if node.children?.length}
 		{#each node.children as child (child.id)}
-			<Self node={child} version={node.version} />
+			<Self node={child} version={node.version} {customNodes} {codeHighlighter} />
 		{/each}
 	{:else}
 		<br />
@@ -88,8 +91,11 @@
 		{@render children()}
 	</svelte:element>
 {:else if node.type == 'code_block'}
-	<!--TODO: handle syntax highlighting  -->
-	<pre {...dataProps}><code>{node.value}</code></pre>
+	{#if codeHighlighter}
+		<CodeHighlight code={node.value} lang={node.lang} {codeHighlighter} />
+	{:else}
+		<pre {...dataProps}><code>{node.value}</code></pre>
+	{/if}
 {:else if node.type == 'thematic_break'}
 	<hr {...dataProps} />
 {:else if node.type == 'blank_line'}

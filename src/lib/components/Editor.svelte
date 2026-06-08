@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import type { EventHandler } from 'svelte/elements';
-	import { defaultParser, type EditRange, type Parser } from '$lib/parser';
+	import { defaultParser, type CodeHighlighter, type EditRange, type Parser } from '$lib/parser';
 	import { captureSelection, restoreSelection, type RawSelection } from './cursor';
 	import type { CustomNodesSnippet } from './Token.svelte';
 	import Renderer from './Renderer.svelte';
@@ -10,6 +10,7 @@
 		ref: editorEl = $bindable(null),
 		value = $bindable(''),
 		customNodes,
+		codeHighlighter,
 		parser = defaultParser,
 		submitOnEnter,
 		placeholder,
@@ -29,6 +30,11 @@
 		ref: HTMLDivElement | null;
 		value: string;
 		customNodes: CustomNodesSnippet;
+		/**
+		 * WARNING: The highlighter is rendered as raw HTML, which can be dangerous.
+		 * Be VERY careful about how it is used
+		 */
+		codeHighlighter: CodeHighlighter;
 		parser: Parser;
 		submitOnEnter: boolean;
 		placeholder: string;
@@ -286,7 +292,7 @@
 		onblur={handleBlur}
 		onpaste={handlePaste}
 	>
-		<Renderer {parsed} {debug} {customNodes} />
+		<Renderer {parsed} {debug} {customNodes} {codeHighlighter} />
 	</div>
 	{#if value.length == 0 && placeholder}
 		<span class={['md-placeholder', placeholderClass].filter(Boolean).join(' ')} aria-hidden="true">

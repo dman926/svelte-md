@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { createParser, MarkdownRenderer } from '$lib';
+	import { createParser, MarkdownRenderer, type CodeHighlighter } from '$lib';
+	import { codeToHtml } from 'shiki';
 
 	let { data } = $props();
 
@@ -7,6 +8,9 @@
 	const parser = $derived(createParser({ inline: { softBreaks: softBreak ? 'space' : 'break' } }));
 
 	const parsed = $derived(parser.parse(data.content));
+
+	const codeHighlighter: CodeHighlighter = (code, lang) =>
+		codeToHtml(code, { lang: lang || 'text', theme: 'min-light' });
 </script>
 
 <div class="header">
@@ -17,7 +21,7 @@
 	</label>
 </div>
 <div class="md-input">
-	<MarkdownRenderer {parser} value={data.content} debug />
+	<MarkdownRenderer {parser} value={data.content} {codeHighlighter} debug />
 </div>
 
 <h2>Parsed</h2>
