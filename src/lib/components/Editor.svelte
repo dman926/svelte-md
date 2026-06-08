@@ -30,6 +30,10 @@
 		ref: HTMLDivElement | null;
 		value: string;
 		customNodes: CustomNodesSnippet;
+		/**
+		 * WARNING: The highlighter is rendered as raw HTML, which can be dangerous.
+		 * Be VERY careful about how it is used
+		 */
 		codeHighlighter: CodeHighlighter;
 		parser: Parser;
 		submitOnEnter: boolean;
