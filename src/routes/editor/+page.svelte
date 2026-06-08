@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { createParser, MarkdownEditor } from '$lib';
 	import { fade } from 'svelte/transition';
+	import { createParser, MarkdownEditor, type CodeHighlighter } from '$lib';
+	import { codeToHtml } from 'shiki';
 
 	const { data } = $props();
 
@@ -10,6 +11,9 @@
 
 	let softBreak = $state(false);
 	const parser = $derived(createParser({ inline: { softBreaks: softBreak ? 'space' : 'break' } }));
+
+	const codeHighlighter: CodeHighlighter = (code, lang) =>
+		codeToHtml(code, { lang: lang || 'text', theme: 'min-light' });
 </script>
 
 <div class="header">
@@ -30,6 +34,7 @@
 				if (!dirty) dirty = true;
 			}}
 			placeholder="Type markdown…"
+			{codeHighlighter}
 			debug
 		/>
 	</div>
