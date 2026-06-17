@@ -20,7 +20,6 @@
       html = res;
     } else {
       res.then((result) => {
-				console.log({result})
         if (active) html = result;
       });
       return () => {
