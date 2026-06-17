@@ -361,7 +361,19 @@ const makeListRule = () => ({
 	// Pass the line through unchanged — List has no marker of its own.
 	tryContinue: (line, node, ctx) => {
 		// Blank lines between items are allowed.
-		if (BLANK_RE.test(line)) return { remainder: line, remainderOffset: ctx.lineOffset };
+		if (BLANK_RE.test(line)) {
+        // Don't consume the blank line if the next thing is clearly not 
+        // part of the list (like a blockquote `>`).
+        const nextLines = ctx.lines.slice(ctx.lineIndex + 1);
+        const nextContent = nextLines.find(l => !BLANK_RE.test(l));
+        
+        // If the next content is a blockquote, force close the list
+        if (nextContent && BLOCKQUOTE_RE.test(nextContent)) {
+            return null; 
+        }
+        
+        return { remainder: line, remainderOffset: ctx.lineOffset };
+    }
 
 		const list = /** @type {List & { _lastContentIndent?: number }} */ (node);
 
